@@ -377,6 +377,50 @@ const SAMPLE = [
   {id:12,name:"Frank Deluca",role:"Retired, SEC Enforcement Officer",location:"West Palm Beach, FL",linkedin:"",icp_score:38,urgency_score:15,icp_category:"Retired Government",summary:"Retired federal enforcement officer. Government pension, no known private wealth event. Former regulatory role creates compliance sensitivity.",match_reasons:["Retired senior government official"],why_now:[],potential_concerns:["Former SEC enforcement — extremely compliance-sensitive","Government pension covers base needs","Approaching any former regulator requires extreme caution"],outreach_angle:"Do not contact. Former SEC enforcement officers are a significant compliance and reputational risk for cold outreach."}
 ];
 
+// ─── ONBOARDING STATE ────────────────────────────────────────────────────────
+let allProspects = []; // full uploaded dataset
+let hasUploaded = false;
+let hasFiltered = false;
+
+function initEmpty() {
+  prospects = [];
+  hasUploaded = false;
+  hasFiltered = false;
+  renderEmptyState();
+  updateCounts();
+  // Show welcome message in chat
+  setTimeout(() => {
+    document.getElementById('chat-msgs').innerHTML = '';
+    addChatMsg('ai', 'Welcome to Compliant Prospector. Start by uploading your CRM file using the <b>Upload CRM</b> button above, then tell me what kind of prospects you want to target.');
+  }, 100);
+}
+
+function renderEmptyState() {
+  const grid = document.getElementById('grid');
+  if (!hasUploaded) {
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:80px 20px;">
+      <div style="font-family:'DM Serif Display',serif;font-size:28px;color:var(--text);margin-bottom:12px;">Upload your CRM to get started</div>
+      <div style="color:var(--muted);font-size:14px;margin-bottom:28px;">Drop your scored.json file using the Upload CRM button in the top right</div>
+      <label style="display:inline-flex;align-items:center;gap:8px;padding:12px 28px;background:var(--accent);color:#0d0f12;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;" for="crm-upload">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Upload CRM file
+      </label>
+    </div>`;
+  } else if (!hasFiltered) {
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:80px 20px;">
+      <div style="font-family:'DM Serif Display',serif;font-size:24px;color:var(--text);margin-bottom:12px;">${allProspects.length} prospects loaded</div>
+      <div style="color:var(--muted);font-size:14px;margin-bottom:12px;">Tell the assistant who you want to reach out to</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:500px;margin:0 auto;">
+        <span class="cprompt" onclick="quickPrompt('Show me founders with recent liquidity events')">Founders with liquidity events</span>
+        <span class="cprompt" onclick="quickPrompt('Find high urgency prospects I should contact this week')">High urgency this week</span>
+        <span class="cprompt" onclick="quickPrompt('Show me C-suite executives in New York')">NYC C-suite executives</span>
+        <span class="cprompt" onclick="quickPrompt('Who has the highest combined ICP and urgency score?')">Highest combined score</span>
+        <span class="cprompt" onclick="quickPrompt('Show all prospects and categorize them')">Show everyone</span>
+      </div>
+    </div>`;
+  }
+}
+
 // ─── STATE ─────────────────────────────────────────────────────────────────────
 let prospects = [];
 let currentFilter = 'all';
@@ -810,25 +854,24 @@ async function sendChat() {
   const typingId = addTyping();
 
   try {
-    const systemPrompt = `You are a prospect triage assistant for a financial advisor. You help the advisor filter, re-rank, and recategorize a list of prospects.
+    const pool = allProspects.length > 0 ? allProspects : prospects;
+    const systemPrompt = `You are a prospect triage assistant for a financial advisor. You help filter, rank, and select the right prospects to contact.
 
-CURRENT PROSPECT LIST:
-${JSON.stringify(prospects.map(p=>({id:p.id,name:p.name,role:p.role,icp_score:p.icp_score,urgency_score:p.urgency_score,category:p.category,why_now:p.why_now,potential_concerns:p.potential_concerns})),null,2)}
+FULL PROSPECT POOL (${pool.length} total):
+${JSON.stringify(pool.map(p=>({id:p.id,name:p.name,role:p.role,icp_score:p.icp_score,urgency_score:p.urgency_score,why_now:p.why_now,icp_category:p.icp_category,location:p.location,potential_concerns:p.potential_concerns})),null,2)}
 
-CATEGORIES: "contact" (green), "potential" (yellow), "dnc" (do not contact / red)
+CATEGORIES: "contact" (green - reach out now), "potential" (yellow - monitor), "dnc" (red - do not contact)
 
-You can:
-1. Answer questions about the prospect list
-2. Suggest or apply re-categorizations
-3. Explain why prospects are ranked how they are
-4. Help the advisor decide who to contact first
+When the advisor describes who they want to target, SELECT the matching prospects from the pool and display them using ACTIONS. Be selective — only surface the most relevant matches.
 
-When you want to apply changes to the prospect list, end your response with a JSON block like:
+When you want to show/filter prospects, end your response with:
 <ACTIONS>
-[{"action":"recategorize","id":1,"category":"contact","reason":"..."},{"action":"sort","by":"urgency"}]
+[{"action":"setProspects","ids":[1,2,3],"categories":{"1":"contact","2":"potential"},"reasons":{"1":"why contact","2":"why potential"}}]
 </ACTIONS>
 
-Keep responses concise and advisor-friendly. No jargon.`;
+You can also use: {"action":"sort","by":"urgency|icp|combined"}
+
+Keep responses concise, advisor-friendly, and specific about why each person was selected.`;
 
     const resp = await fetch('/api/proxy', {
       method: 'POST',
@@ -876,6 +919,25 @@ Keep responses concise and advisor-friendly. No jargon.`;
 function applyActions(actions) {
   let changed = 0;
   actions.forEach(a => {
+    if (a.action === 'setProspects') {
+      // Filter pool to selected IDs and apply categories
+      const pool = allProspects.length > 0 ? allProspects : SAMPLE;
+      const ids = a.ids || [];
+      const cats = a.categories || {};
+      const reasons = a.reasons || {};
+      prospects = pool
+        .filter(p => ids.includes(p.id))
+        .map(p => {
+          const cat = cats[p.id] || cats[String(p.id)] || categorize(p);
+          return {
+            ...p,
+            category: cat,
+            catReason: reasons[p.id] || reasons[String(p.id)] || catReason(p, cat)
+          };
+        });
+      hasFiltered = true;
+      changed++;
+    }
     if (a.action === 'recategorize') {
       const p = prospects.find(x=>x.id===a.id);
       if (p && ['contact','potential','dnc'].includes(a.category)) {
@@ -951,7 +1013,11 @@ function handleUpload(e) {
       document.getElementById('crm-name').textContent = file.name;
       selected.clear();
       init(arr);
-      addChatMsg('ai', `Loaded <b>${file.name}</b> — ${arr.length} prospects. I have categorized them automatically. Want me to re-rank or adjust any categories?`);
+      allProspects = arr;
+      hasUploaded = true;
+      hasFiltered = false;
+      renderEmptyState();
+      addChatMsg('ai', `Loaded <b>${file.name}</b> — ${arr.length} prospects ready. Tell me what kind of people you want to reach out to. For example: "show me founders with recent funding" or "find high urgency C-suite executives".`);
     } catch(err) {
       alert('Could not parse file: ' + err.message);
     }
@@ -963,7 +1029,7 @@ function handleUpload(e) {
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 // ─── BOOT ──────────────────────────────────────────────────────────────────────
-init(SAMPLE);
+initEmpty();
 </script>
 </body>
 </html>
