@@ -101,7 +101,7 @@ button,input,select,textarea{font-family:'Geist',-apple-system,BlinkMacSystemFon
 
 .bio-page{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:26px 30px;max-width:760px;margin:0 auto;}
 .bio-top{display:flex;gap:18px;margin-bottom:22px;align-items:flex-start;}
-.bio-avatar{width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:600;flex-shrink:0;}
+.bio-avatar{width:72px;height:72px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:600;flex-shrink:0;}
 .bio-name{font-family:'Playfair Display',Georgia,serif;font-size:22px;font-weight:400;margin-bottom:3px;letter-spacing:-0.01em;}
 .bio-role{color:var(--text3);font-size:12px;margin-bottom:8px;}
 .bio-tags{display:flex;gap:6px;flex-wrap:wrap;}
@@ -675,9 +675,9 @@ function renderBio(p, r) {
   const avatarUrl = getAvatarUrl(p);
   return `<div class="bio-page">
     <div class="bio-top">
-      <div class="bio-avatar" style="background:${avatarColor(pi)}22;color:${avatarColor(pi)};font-size:18px;position:relative;overflow:hidden">
-        ${avatarUrl ? `<img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;border-radius:50%" onerror="this.remove()">` : ''}
-        <span style="position:relative;z-index:1">${initials(p.name)}</span>
+      <div class="bio-avatar" style="background:${avatarColor(pi)}22;color:${avatarColor(pi)};font-size:20px;position:relative;overflow:hidden;width:72px;height:72px">
+        <span class="av-initials" style="position:relative;z-index:1;transition:opacity .2s">${initials(p.name)}</span>
+        ${avatarUrl ? `<img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;border-radius:50%" onload="this.previousElementSibling.style.opacity='0'" onerror="this.remove()">` : ''}
       </div>
       <div>
         <div class="bio-name">${p.name}</div>
