@@ -865,23 +865,26 @@ async function sendChat() {
 
   try {
     const pool = allProspects.length > 0 ? allProspects : prospects;
-    const systemPrompt = `You are a prospect triage assistant for a financial advisor. You help filter, rank, and select the right prospects to contact.
+    // Only send top 80 by combined score to stay within token limits
+    const topPool = [...pool]
+      .sort((a,b) => ((b.icp_score*.45)+(b.urgency_score*.55)) - ((a.icp_score*.45)+(a.urgency_score*.55)))
+      .slice(0, 80);
+    const systemPrompt = `You are a prospect triage assistant for a financial advisor. You help filter, rank, and select the right prospects to contact from a CRM dataset.
 
-FULL PROSPECT POOL (${pool.length} total):
-${JSON.stringify(pool.map(p=>({id:p.id,name:p.name,role:p.role,icp_score:p.icp_score,urgency_score:p.urgency_score,why_now:p.why_now,icp_category:p.icp_category,location:p.location,potential_concerns:p.potential_concerns})),null,2)}
+PROSPECT POOL (top ${topPool.length} of ${pool.length} total, sorted by score):
+${JSON.stringify(topPool.map(p=>({id:p.id,name:p.name,role:p.role,icp_score:p.icp_score,urgency_score:p.urgency_score,why_now:p.why_now,icp_category:p.icp_category,location:p.location})),null,2)}
 
 CATEGORIES: "contact" (green - reach out now), "potential" (yellow - monitor), "dnc" (red - do not contact)
 
-When the advisor describes who they want to target, SELECT the matching prospects from the pool and display them using ACTIONS. Be selective — only surface the most relevant matches.
+When the advisor describes who they want to target, SELECT the best matching prospects and show them using ACTIONS. Be selective — return 5-20 of the most relevant matches only.
 
-When you want to show/filter prospects, end your response with:
+End your response with:
 <ACTIONS>
-[{"action":"setProspects","ids":[1,2,3],"categories":{"1":"contact","2":"potential"},"reasons":{"1":"why contact","2":"why potential"}}]
+[{"action":"setProspects","ids":[1,2,3],"categories":{"1":"contact","2":"potential"},"reasons":{"1":"reason","2":"reason"}}]
 </ACTIONS>
 
-You can also use: {"action":"sort","by":"urgency|icp|combined"}
-
-Keep responses concise, advisor-friendly, and specific about why each person was selected.`;
+You can also: {"action":"sort","by":"urgency|icp|combined"}
+Keep responses concise and specific.`;
 
     const resp = await fetch('/api/proxy', {
       method: 'POST',
