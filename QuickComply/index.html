@@ -429,7 +429,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
             <button class="search-type-btn active" id="stype-name" onclick="setSearchType('name',this)" style="padding:5px 10px;font-size:10px;font-family:'Geist Mono',monospace;letter-spacing:.04em;text-transform:uppercase;background:none;border:none;cursor:pointer;color:var(--accent);transition:all .15s;">Name</button>
             <button class="search-type-btn" id="stype-company" onclick="setSearchType('company',this)" style="padding:5px 10px;font-size:10px;font-family:'Geist Mono',monospace;letter-spacing:.04em;text-transform:uppercase;background:none;border:none;cursor:pointer;color:var(--text3);transition:all .15s;">Company</button>
           </div>
-          <input type="text" id="prospect-search" placeholder="Search..." style="background:none;border:none;padding:5px 10px;color:var(--text);font-size:12px;outline:none;width:160px;" oninput="handleSearch(this.value)" onkeydown="if(event.key==='Escape'){this.value='';handleSearch('');}">
+          <input type="text" id="prospect-search" placeholder="Search..." style="background:none;border:none;padding:5px 10px;color:var(--text);font-size:12px;outline:none;width:160px;" onkeydown="if(event.key==='Enter'){handleSearch(this.value);}" onkeyup="if(this.value===''){handleSearch('');}" onkeydown="if(event.key==='Escape'){this.value='';handleSearch('');}">
           <button onclick="document.getElementById('prospect-search').value='';handleSearch('');" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:0 8px;font-size:14px;line-height:1;display:none;" id="search-clear">×</button>
         </div>
         <select class="sort-sel" onchange="sortProspects(this.value)">
@@ -569,36 +569,103 @@ function renderEmptyState() {
   const grid = document.getElementById('grid');
   if (!hasUploaded) {
     grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:80px 20px;">
-      <div style="font-family:'Playfair Display',Georgia,serif;font-size:28px;font-weight:400;color:var(--text);margin-bottom:12px;letter-spacing:-0.01em;">Upload your CRM to get started</div>
-      <div style="color:var(--muted);font-size:14px;margin-bottom:28px;">Drop your scored.json file using the Upload CRM button in the top right</div>
-      <label style="display:inline-flex;align-items:center;gap:8px;padding:12px 28px;background:var(--accent);color:#0d0f12;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;" for="crm-upload">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <div style="font-family:'Playfair Display',Georgia,serif;font-size:28px;font-weight:400;color:var(--text);margin-bottom:10px;letter-spacing:-0.01em;">Upload your CRM to get started</div>
+      <div style="color:var(--text3);font-size:13px;margin-bottom:28px;">Drop your scored.json file using the Upload CRM button in the top right</div>
+      <label style="display:inline-flex;align-items:center;gap:8px;padding:11px 24px;background:var(--accent);color:#0d0f12;border-radius:var(--radius-sm);font-size:13px;font-weight:600;cursor:pointer;" for="crm-upload">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         Upload CRM file
       </label>
     </div>`;
   } else if (!hasFiltered) {
-    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:80px 20px;">
-      <div style="font-family:'Playfair Display',Georgia,serif;font-size:28px;font-weight:400;color:var(--text);margin-bottom:12px;letter-spacing:-0.01em;">${allProspects.length} prospects loaded</div>
-      <div style="color:var(--muted);font-size:14px;margin-bottom:12px;">Tell the assistant who you want to reach out to</div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:500px;margin:0 auto;">
-        <span class="cprompt" onclick="quickPrompt('Show me founders with recent liquidity events')">Founders with liquidity events</span>
-        <span class="cprompt" onclick="quickPrompt('Find high urgency prospects I should contact this week')">High urgency this week</span>
-        <span class="cprompt" onclick="quickPrompt('Show me C-suite executives in New York')">NYC C-suite executives</span>
-        <span class="cprompt" onclick="quickPrompt('Who has the highest combined ICP and urgency score?')">Highest combined score</span>
+    grid.innerHTML = `<div style="grid-column:1/-1;padding:60px 40px;max-width:680px;margin:0 auto;">
+      <div style="font-family:'Playfair Display',Georgia,serif;font-size:26px;font-weight:400;color:var(--text);margin-bottom:6px;letter-spacing:-0.01em;">${allProspects.length} prospects ready</div>
+      <div style="color:var(--text3);font-size:13px;margin-bottom:32px;">Search by name or company for a specific person, or describe who you want to target using open-ended criteria.</div>
+
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:28px;">
+
+        <!-- Name search -->
+        <div style="display:flex;align-items:center;gap:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;transition:border-color .15s;" onfocusin="this.style.borderColor='rgba(212,184,150,.4)'" onfocusout="this.style.borderColor='rgba(255,255,255,0.06)'">
+          <div style="padding:0 14px;font-size:10px;font-family:'Geist Mono',monospace;letter-spacing:.07em;text-transform:uppercase;color:var(--accent);white-space:nowrap;border-right:1px solid var(--border);height:42px;display:flex;align-items:center;">Name</div>
+          <input type="text" id="name-search-input" placeholder="Search by person's name..." autocomplete="off"
+            style="flex:1;background:none;border:none;padding:0 14px;color:var(--text);font-size:13px;outline:none;height:42px;font-family:'Geist',-apple-system,sans-serif;"
+            onkeydown="if(event.key==='Enter'){var v=this.value.trim();if(v)runNameSearch(v);}">
+          <button onclick="var v=document.getElementById('name-search-input').value.trim();if(v)runNameSearch(v);"
+            style="padding:0 16px;background:none;border:none;border-left:1px solid var(--border);color:var(--text3);cursor:pointer;font-size:11px;font-family:'Geist Mono',monospace;letter-spacing:.05em;text-transform:uppercase;height:42px;transition:color .15s;white-space:nowrap;"
+            onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text3)'">Search ↵</button>
+        </div>
+
+        <!-- Company search -->
+        <div style="display:flex;align-items:center;gap:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;transition:border-color .15s;" onfocusin="this.style.borderColor='rgba(212,184,150,.4)'" onfocusout="this.style.borderColor='rgba(255,255,255,0.06)'">
+          <div style="padding:0 14px;font-size:10px;font-family:'Geist Mono',monospace;letter-spacing:.07em;text-transform:uppercase;color:var(--sky);white-space:nowrap;border-right:1px solid var(--border);height:42px;display:flex;align-items:center;">Company</div>
+          <input type="text" id="company-search-input" placeholder="Search by company name..." autocomplete="off"
+            style="flex:1;background:none;border:none;padding:0 14px;color:var(--text);font-size:13px;outline:none;height:42px;font-family:'Geist',-apple-system,sans-serif;"
+            onkeydown="if(event.key==='Enter'){var v=this.value.trim();if(v)runCompanySearch(v);}">
+          <button onclick="var v=document.getElementById('company-search-input').value.trim();if(v)runCompanySearch(v);"
+            style="padding:0 16px;background:none;border:none;border-left:1px solid var(--border);color:var(--text3);cursor:pointer;font-size:11px;font-family:'Geist Mono',monospace;letter-spacing:.05em;text-transform:uppercase;height:42px;transition:color .15s;white-space:nowrap;"
+            onmouseover="this.style.color='var(--sky)'" onmouseout="this.style.color='var(--text3)'">Search ↵</button>
+        </div>
+
+        <!-- AI open-ended -->
+        <div style="display:flex;align-items:center;gap:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;transition:border-color .15s;" onfocusin="this.style.borderColor='rgba(212,184,150,.4)'" onfocusout="this.style.borderColor='rgba(255,255,255,0.06)'">
+          <div style="padding:0 14px;font-size:10px;font-family:'Geist Mono',monospace;letter-spacing:.07em;text-transform:uppercase;color:var(--emerald);white-space:nowrap;border-right:1px solid var(--border);height:42px;display:flex;align-items:center;">AI&nbsp;Filter</div>
+          <input type="text" id="custom-filter-input" placeholder="e.g. founders with recent funding in NYC..." autocomplete="off"
+            style="flex:1;background:none;border:none;padding:0 14px;color:var(--text);font-size:13px;outline:none;height:42px;font-family:'Geist',-apple-system,sans-serif;"
+            onkeydown="if(event.key==='Enter'){var v=this.value.trim();if(v){this.value='';quickPrompt(v);}}">
+          <button onclick="var v=document.getElementById('custom-filter-input').value.trim();if(v){document.getElementById('custom-filter-input').value='';quickPrompt(v);}"
+            style="padding:0 16px;background:none;border:none;border-left:1px solid var(--border);color:var(--text3);cursor:pointer;font-size:11px;font-family:'Geist Mono',monospace;letter-spacing:.05em;text-transform:uppercase;height:42px;transition:color .15s;white-space:nowrap;"
+            onmouseover="this.style.color='var(--emerald)'" onmouseout="this.style.color='var(--text3)'">Ask AI ↵</button>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        <span style="font-size:10px;font-family:'Geist Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-right:4px;display:flex;align-items:center;">Quick filters</span>
+        <span class="cprompt" onclick="quickPrompt('Show me founders with recent liquidity events')">Founders w/ liquidity</span>
+        <span class="cprompt" onclick="quickPrompt('Find high urgency prospects I should contact this week')">High urgency</span>
+        <span class="cprompt" onclick="quickPrompt('Show me C-suite executives')">C-suite execs</span>
         <span class="cprompt" onclick="quickPrompt('Show all prospects and categorize them')">Show everyone</span>
       </div>
-      <div style="display:flex;gap:8px;margin-top:20px;max-width:480px;margin-left:auto;margin-right:auto;">
-        <input type="text" id="custom-filter-input" placeholder="Or describe who you want to target..." 
-          style="flex:1;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:10px 14px;color:#e8eaf0;font-size:13px;outline:none;font-family:'Instrument Sans',sans-serif;"
-          onkeydown="if(event.key==='Enter'){var v=this.value.trim();if(v){this.value='';quickPrompt(v);}}"
-        />
-        <button onclick="var v=document.getElementById('custom-filter-input').value.trim();if(v){document.getElementById('custom-filter-input').value='';quickPrompt(v);}"
-          style="padding:10px 18px;background:#c8b97a;border:none;border-radius:8px;color:#0d0f12;font-size:13px;font-weight:600;cursor:pointer;font-family:'Instrument Sans',sans-serif;">
-          Go
-        </button>
-      </div>
     </div>`;
+
+    // Focus name input after render
+    setTimeout(() => document.getElementById('name-search-input')?.focus(), 50);
   }
+}
+
+function runNameSearch(q) {
+  const matches = allProspects.filter(p => (p.name||'').toLowerCase().includes(q.toLowerCase()));
+  if (!matches.length) {
+    document.getElementById('grid').innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--text3)">
+      <div style="font-size:15px;color:var(--text);margin-bottom:6px;font-family:'Playfair Display',serif">No match for "${q}"</div>
+      <div style="font-size:12px">Try a different name or use AI Filter for broader criteria</div>
+    </div>`;
+    return;
+  }
+  // Show results directly — no AI needed
+  prospects = matches.map(p => ({...p, category: p.category || categorize(p)}));
+  prospects.forEach(p => { if (!p.catReason) p.catReason = catReason(p, p.category); });
+  hasFiltered = true;
+  updateCounts();
+  const resetBtn = document.getElementById('reset-btn');
+  if (resetBtn) resetBtn.style.display = 'block';
+  renderGrid();
+}
+
+function runCompanySearch(q) {
+  const matches = allProspects.filter(p => (p.role||'').toLowerCase().includes(q.toLowerCase()));
+  if (!matches.length) {
+    document.getElementById('grid').innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--text3)">
+      <div style="font-size:15px;color:var(--text);margin-bottom:6px;font-family:'Playfair Display',serif">No company matching "${q}"</div>
+      <div style="font-size:12px">Try a different company name or use AI Filter</div>
+    </div>`;
+    return;
+  }
+  prospects = matches.map(p => ({...p, category: p.category || categorize(p)}));
+  prospects.forEach(p => { if (!p.catReason) p.catReason = catReason(p, p.category); });
+  hasFiltered = true;
+  updateCounts();
+  const resetBtn = document.getElementById('reset-btn');
+  if (resetBtn) resetBtn.style.display = 'block';
+  renderGrid();
 }
 
 // ─── STATE ─────────────────────────────────────────────────────────────────────
