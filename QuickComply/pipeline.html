@@ -850,61 +850,37 @@ function sendToReview(pid) {
   const complianceData = r.compliance || {};
   const stateInfo = getStateRegs(p.location || '');
 
-  // Build compliance review email to officer
-  const reviewBody = `COMPLIANCE REVIEW REQUEST
-═══════════════════════════════════════
-Prospect: ${p.name}
-Role: ${p.role}
-Location: ${p.location}
-State Regulations: ${stateInfo}
-
-COMPLIANCE SCORE: ${complianceData.overall_score || 'N/A'}/100
-VERDICT: ${(complianceData.verdict||'pending').toUpperCase()}
-
-FINRA 2210 CHECKS:
-${(complianceData.items||[]).map(i=>`${i.status==='pass'?'✓':i.status==='warn'?'⚠':'✗'} ${i.rule} — ${i.ref}`).join('\n')}
-
-═══════════════════════════════════════
-PROPOSED EMAIL TO ${p.name.toUpperCase()}:
-
-Subject: ${subject}
-
-${body}
-═══════════════════════════════════════
-
-INSTRUCTIONS: Review the above email for compliance.
-→ APPROVE: Reply with "APPROVED" 
-→ REJECT: Reply with "REJECTED: [your reason]"
-
-Review dashboard: ${window.location.origin}/compliance-dashboard.html?id=${p.id}&name=${encodeURIComponent(p.name)}
-
-Sent by: ryancp207@gmail.com via QuickComply`;
-
-  // Open Gmail compose
-  const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=jadiengunnip@gmail.com&su=${encodeURIComponent(`[COMPLIANCE REVIEW] ${subject}`)}&body=${encodeURIComponent(reviewBody)}&from=ryancp207@gmail.com`;
-  window.open(gmailUrl, '_blank');
-
-  // Save to pending reviews in localStorage for dashboard
+  // Save to compliance dashboard queue — no email sent
   const pending = JSON.parse(localStorage.getItem('cp_pending_reviews') || '[]');
   const existing = pending.findIndex(x => x.prospectId === p.id);
   const review = {
     prospectId: p.id,
     prospectName: p.name,
     prospectRole: p.role,
+    prospectLinkedin: p.linkedin || '',
+    prospectImg: p._img || '',
     subject,
     body,
     complianceScore: complianceData.overall_score,
+    complianceItems: complianceData.items || [],
     verdict: complianceData.verdict,
     stateRegs: stateInfo,
     status: 'pending',
     sentAt: new Date().toISOString(),
-    advisorEmail: 'ryancp207@gmail.com'
+    advisorEmail: 'ryancp207@gmail.com',
+    prospectEmail: 'jadiengunnip@gmail.com'
   };
   if (existing >= 0) pending[existing] = review;
   else pending.push(review);
   localStorage.setItem('cp_pending_reviews', JSON.stringify(pending));
 
-  alert(`✓ Compliance review opened in Gmail to jadiengunnip@gmail.com\n\nOnce sent, track status in the Compliance Dashboard.`);
+  // Show success inline — no alert
+  const bar = document.getElementById('action-bar');
+  if (bar) {
+    const btn = bar.querySelector('.abtn-primary');
+    if (btn) { btn.textContent = '✓ Submitted to compliance'; btn.style.background = 'var(--emerald)'; btn.disabled = true; }
+  }
+  setTimeout(() => renderActionBar(), 2000);
 }
 
 function printView() {
