@@ -291,6 +291,7 @@ input[type=range]{width:100%;accent-color:var(--accent);}
         <button class="ftab" onclick="filterBy('contact',null,this)">Contact</button>
         <button class="ftab" onclick="filterBy('potential',null,this)">Potentially</button>
         <button class="ftab" onclick="filterBy('dnc',null,this)">Do not contact</button>
+        <button class="ftab" onclick="resetFilter()" id="reset-btn" style="display:none;color:#f59e0b;border-color:rgba(245,158,11,0.3)">↺ New search</button>
       </div>
       <select class="sort-sel" onchange="sortProspects(this.value)">
         <option value="urgency">Sort: Urgency</option>
@@ -481,11 +482,7 @@ function renderGrid() {
   const grid = document.getElementById('grid');
   const filtered = currentFilter === 'all' ? prospects : prospects.filter(p => p.category === currentFilter);
   if (!filtered.length) {
-    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--muted)">
-      <div style="font-size:32px;margin-bottom:12px;opacity:.3">◎</div>
-      <div style="font-size:15px;color:var(--text);margin-bottom:6px;font-family:'DM Serif Display',serif">No prospects here</div>
-      Upload a CRM file or ask the assistant to re-filter.
-    </div>`;
+    renderEmptyState();
     return;
   }
   grid.innerHTML = filtered.map(p => {
@@ -549,6 +546,17 @@ function filterBy(cat, statEl, tabEl) {
   if (tabEl) tabEl.className = `ftab ${clsMap[cat]}`;
   else if (tabMap[cat] !== undefined) allTabs[tabMap[cat]].className = `ftab ${clsMap[cat]}`;
   renderGrid();
+}
+
+function resetFilter() {
+  prospects = [];
+  hasFiltered = false;
+  selected.clear();
+  updateBatch();
+  updateCounts();
+  document.getElementById('reset-btn').style.display = 'none';
+  renderEmptyState();
+  addChatMsg('ai', 'Search reset. Tell me who you want to target from your ' + allProspects.length + ' prospects.');
 }
 
 function sortProspects(val) {
@@ -845,7 +853,8 @@ async function batchDraft() {
 
 // ─── CHATBOT ───────────────────────────────────────────────────────────────────
 function quickPrompt(text) {
-  document.getElementById('chat-input').value = text;
+  const inp = document.getElementById('chat-input');
+  inp.value = text;
   sendChat();
 }
 
@@ -961,7 +970,16 @@ function applyActions(actions) {
     }
     if (a.action === 'sort') sortProspects(a.by || 'urgency');
   });
-  if (changed > 0) { updateCounts(); renderGrid(); }
+  if (changed > 0) { 
+    updateCounts(); 
+    currentFilter = 'all';
+    document.querySelectorAll('.ftab').forEach(t => t.className = 'ftab');
+    const allTab = document.querySelectorAll('.ftab')[0];
+    if(allTab) allTab.className = 'ftab fa';
+    const resetBtn = document.getElementById('reset-btn');
+    if(resetBtn) resetBtn.style.display = hasFiltered ? 'block' : 'none';
+    renderGrid(); 
+  }
 }
 
 let typingCounter = 0;
