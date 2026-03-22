@@ -417,6 +417,16 @@ function renderEmptyState() {
         <span class="cprompt" onclick="quickPrompt('Who has the highest combined ICP and urgency score?')">Highest combined score</span>
         <span class="cprompt" onclick="quickPrompt('Show all prospects and categorize them')">Show everyone</span>
       </div>
+      <div style="display:flex;gap:8px;margin-top:20px;max-width:480px;margin-left:auto;margin-right:auto;">
+        <input type="text" id="custom-filter-input" placeholder="Or describe who you want to target..." 
+          style="flex:1;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:10px 14px;color:#e8eaf0;font-size:13px;outline:none;font-family:'Instrument Sans',sans-serif;"
+          onkeydown="if(event.key==='Enter'){var v=this.value.trim();if(v){quickPrompt(v);this.value='';}}"
+        />
+        <button onclick="var v=document.getElementById('custom-filter-input').value.trim();if(v){quickPrompt(v);document.getElementById('custom-filter-input').value='';}"
+          style="padding:10px 18px;background:#c8b97a;border:none;border-radius:8px;color:#0d0f12;font-size:13px;font-weight:600;cursor:pointer;font-family:'Instrument Sans',sans-serif;">
+          Go
+        </button>
+      </div>
     </div>`;
   }
 }
