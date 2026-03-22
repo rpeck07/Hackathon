@@ -894,17 +894,39 @@ function printView() {
 }
 
 // ── AVATAR ────────────────────────────────────────────────────────────────────
-// Generate avatar as inline SVG data URI — zero network, instant
-function getAvatarUrl(p) {
-  if (p._img) return p._img;
+// Avatar: inline SVG fallback + Piloterr async fetch
+const _avatarCache = {};
+
+function svgAvatar(name) {
   const colors = ['#1e3a5f','#2d4a3e','#3d2b4a','#4a2b2b','#2b3d4a','#3a3018','#1a3a2d','#2e1f3e'];
   let hash = 0;
-  for (let i = 0; i < (p.name||'').length; i++) hash = (p.name.charCodeAt(i) + ((hash<<5)-hash));
+  for (let i = 0; i < (name||'').length; i++) hash = (name.charCodeAt(i) + ((hash<<5)-hash));
   const bg = colors[Math.abs(hash) % colors.length];
-  const initials = (p.name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="32" r="32" fill="${bg}"/><text x="32" y="32" font-family="-apple-system,sans-serif" font-size="22" font-weight="600" fill="#d4b896" text-anchor="middle" dominant-baseline="central">${initials}</text></svg>`;
-  p._img = 'data:image/svg+xml;base64,' + btoa(svg);
-  return p._img;
+  const ini = (name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><circle cx="32" cy="32" r="32" fill="${bg}"/><text x="32" y="32" font-family="-apple-system,sans-serif" font-size="22" font-weight="600" fill="#d4b896" text-anchor="middle" dominant-baseline="central">${ini}</text></svg>`;
+  return 'data:image/svg+xml;base64,' + btoa(svg);
+}
+
+// Returns SVG instantly, fires real photo fetch in background
+function getAvatarUrl(p) {
+  if (p._img && !p._img.startsWith('data:')) return p._img; // real photo already loaded
+  if (!p._imgSvg) p._imgSvg = svgAvatar(p.name);
+  // Kick off real photo fetch if we have a linkedin url and haven't tried yet
+  if (p.linkedin && _avatarCache[p.id] === undefined) {
+    _avatarCache[p.id] = null; // mark as in-progress
+    fetch('/api/linkedin-photo?url=' + encodeURIComponent(p.linkedin))
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d && d.image) {
+          p._img = d.image;
+          _avatarCache[p.id] = d.image;
+          // Update any visible avatar elements for this person
+          document.querySelectorAll(`[data-id="${p.id}"] .card-avatar-wrap img, .detail-avatar-wrap img, .bio-avatar img`).forEach(el => { el.src = d.image; });
+        }
+      })
+      .catch(() => {});
+  }
+  return p._imgSvg;
 }
 async function resolveAvatar(p) { return getAvatarUrl(p); }
 
