@@ -126,6 +126,8 @@ button,input,select,textarea{font-family:'Geist',-apple-system,BlinkMacSystemFon
 @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 .inbox-item{animation:fadeUp .2s ease both;}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script>emailjs.init('KF_t_flwCxoCer2S5');</script>
 </head>
 <body>
 
@@ -211,22 +213,35 @@ function submitRevision(idx){
   render();
 }
 
-function sendToProspect(idx){
+async function sendToProspect(idx){
   const reviews = getReviews();
   const r = reviews[idx];
-  const toEmail = document.getElementById('dt-'+idx)?.value?.trim();
-  if(!toEmail) return alert('Enter the prospect\'s email address.');
+  const toEmail = document.getElementById('dt-'+idx)?.value?.trim() || r.prospectEmail || 'jadiengunnip@gmail.com';
 
-  const finalEmail = toEmail || r.prospectEmail || 'jadiengunnip@gmail.com';
-  const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(finalEmail)}&su=${encodeURIComponent(r.subject)}&body=${encodeURIComponent(r.body)}&from=ryancp207@gmail.com`;
-  window.open(gmailUrl, '_blank');
+  const btn = document.querySelector(`[onclick="sendToProspect(${idx})"]`);
+  if (btn) { btn.textContent = 'Sending...'; btn.disabled = true; }
 
-  reviews[idx].status = 'sent';
-  reviews[idx].sentToProspect = toEmail;
-  reviews[idx].sentToProspectAt = new Date().toISOString();
-  saveReviews(reviews);
-  render();
+  try {
+    await emailjs.send('service_zjvkf3m', 'template_quud2b7', {
+      to_email: toEmail,
+      subject: r.subject,
+      message: r.body,
+      from_email: 'ryancp207@gmail.com',
+      from_name: 'Ryan Peck'
+    });
+
+    reviews[idx].status = 'sent';
+    reviews[idx].sentToProspect = toEmail;
+    reviews[idx].sentToProspectAt = new Date().toISOString();
+    saveReviews(reviews);
+    render();
+  } catch(err) {
+    console.error('EmailJS error:', err);
+    if (btn) { btn.textContent = '✉ Send email to prospect'; btn.disabled = false; }
+    alert('Send failed: ' + (err.text || err.message || JSON.stringify(err)));
+  }
 }
+
 
 function render(){
   const reviews = getReviews();
