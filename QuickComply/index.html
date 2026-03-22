@@ -922,19 +922,38 @@ function closeOverlay(id, e) {
 }
 
 // ─── UPLOAD ────────────────────────────────────────────────────────────────────
+function normalizeProspect(p, i) {
+  return {
+    id: p.id || i + 1,
+    name: p.name || '',
+    role: p.current_role || p.role || '',
+    location: p.location || '',
+    linkedin: p.linkedin_url || p.linkedin || '',
+    icp_score: p.icp_match_score || p.icp_score || 0,
+    urgency_score: p.urgency_score || 0,
+    icp_category: p.matched_icp || p.icp_category || '',
+    summary: p.summary || '',
+    match_reasons: p.match_reasons || [],
+    why_now: p.why_now_reasons || p.why_now || [],
+    potential_concerns: p.concerns || p.potential_concerns || [],
+    outreach_angle: p.recommended_outreach_angle || p.outreach_angle || ''
+  };
+}
+
 function handleUpload(e) {
   const file = e.target.files[0]; if(!file) return;
   const reader = new FileReader();
   reader.onload = ev => {
     try {
       const data = JSON.parse(ev.target.result);
-      const arr = Array.isArray(data) ? data : (data.prospects || data.records || [data]);
+      const raw = Array.isArray(data) ? data : (data.prospects || data.records || [data]);
+      const arr = raw.map((p, i) => normalizeProspect(p, i));
       document.getElementById('crm-name').textContent = file.name;
       selected.clear();
       init(arr);
-      addChatMsg('ai', `Loaded <b>${file.name}</b> — ${arr.length} prospects. I've categorized them automatically. Want me to re-rank or adjust any categories?`);
-    } catch {
-      alert('Could not parse file. Expected JSON array matching scored.json schema.');
+      addChatMsg('ai', `Loaded <b>${file.name}</b> — ${arr.length} prospects. I have categorized them automatically. Want me to re-rank or adjust any categories?`);
+    } catch(err) {
+      alert('Could not parse file: ' + err.message);
     }
   };
   reader.readAsText(file);
