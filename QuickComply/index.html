@@ -803,6 +803,16 @@ function renderGrid() {
     });
   }
   if (!filtered.length) {
+    const catLabel = {contact:'Contact',potential:'Potentially contact',dnc:'Do not contact'}[currentFilter];
+    if (currentFilter !== 'all' && prospects.length > 0) {
+      // On a category tab with results loaded but none in this category
+      grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--text3)">
+        <div style="font-size:28px;margin-bottom:10px;opacity:.2">◎</div>
+        <div style="font-size:15px;color:var(--text);margin-bottom:6px;font-family:'Playfair Display',serif">No one available</div>
+        <div style="font-size:12px">None of your search results fall into the <span style="color:${{contact:'var(--emerald)',potential:'var(--amber)',dnc:'var(--rose)'}[currentFilter]}">${catLabel}</span> category</div>
+      </div>`;
+      return;
+    }
     if (searchQuery) {
       grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--text3)">
         <div style="font-size:28px;margin-bottom:10px;opacity:.3">◎</div>
