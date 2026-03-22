@@ -3,10 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <title>Advisor Inbox — QuickComply</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap');
-
 :root {
   --bg:#0f1117; --bg2:#13151e; --surface:#181c27; --surface2:#1e2233; --surface3:#252a3d;
   --border:rgba(255,255,255,0.06); --border2:rgba(255,255,255,0.11); --border3:rgba(255,255,255,0.18);
@@ -21,8 +22,8 @@
   --shadow-lg:0 4px 24px rgba(0,0,0,0.5);
 }
 *{box-sizing:border-box;margin:0;padding:0;}
-body{background:var(--bg);color:var(--text);font-family:'Geist',system-ui,sans-serif;font-size:13px;line-height:1.55;min-height:100vh;-webkit-font-smoothing:antialiased;}
-button,input,select,textarea{font-family:'Geist',system-ui,sans-serif;}
+body{background:var(--bg);color:var(--text);font-family:'Geist',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13px;line-height:1.55;min-height:100vh;-webkit-font-smoothing:antialiased;}
+button,input,select,textarea{font-family:'Geist',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;}
 ::-webkit-scrollbar{width:4px;}::-webkit-scrollbar-thumb{background:var(--surface3);border-radius:2px;}
 
 .topnav{display:flex;align-items:center;justify-content:space-between;padding:0 28px;height:56px;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:100;}
@@ -207,8 +208,6 @@ function submitRevision(idx){
   saveReviews(reviews);
 
   const r = reviews[idx];
-  const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=jadiengunnip@gmail.com&su=${encodeURIComponent('[REVISED] '+r.subject)}&body=${encodeURIComponent('REVISED COMPLIANCE REVIEW REQUEST\n\nProspect: '+r.prospectName+'\nPrevious rejection: '+r.rejectionReason+'\n\nREVISED EMAIL:\nSubject: '+r.subject+'\n\n'+r.body+'\n\nPlease review and approve/reject.')}&from=ryancp207@gmail.com`;
-  window.open(gmailUrl, '_blank');
   render();
 }
 
@@ -218,7 +217,8 @@ function sendToProspect(idx){
   const toEmail = document.getElementById('dt-'+idx)?.value?.trim();
   if(!toEmail) return alert('Enter the prospect\'s email address.');
 
-  const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(toEmail)}&su=${encodeURIComponent(r.subject)}&body=${encodeURIComponent(r.body)}&from=ryancp207@gmail.com`;
+  const finalEmail = toEmail || r.prospectEmail || 'jadiengunnip@gmail.com';
+  const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(finalEmail)}&su=${encodeURIComponent(r.subject)}&body=${encodeURIComponent(r.body)}&from=ryancp207@gmail.com`;
   window.open(gmailUrl, '_blank');
 
   reviews[idx].status = 'sent';
@@ -284,7 +284,7 @@ function render(){
         </div>
         <div class="send-section">
           <label>Prospect email address</label>
-          <input type="email" id="dt-${idx}" placeholder="prospect@email.com">
+          <input type="email" id="dt-${idx}" placeholder="prospect@email.com" value="${r.prospectEmail||'jadiengunnip@gmail.com'}">
         </div>
         <div class="action-row">
           <button class="abtn abtn-send" onclick="sendToProspect(${idx})">✉ Send via Gmail</button>
@@ -325,7 +325,10 @@ function render(){
     return `<div class="inbox-item ${itemClass}">
       <div class="item-header" onclick="toggleItem(${idx})">
         <div class="item-left">
-          <div class="item-avatar" style="background:${color}22;color:${color}">${initials(r.prospectName)}</div>
+          <div class="item-avatar" style="background:${color}22;color:${color};overflow:hidden;position:relative">
+            ${r.prospectImg ? `<img src="${r.prospectImg}" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0" onerror="this.remove()">` : ''}
+            <span style="position:relative;z-index:1">${initials(r.prospectName)}</span>
+          </div>
           <div>
             <div class="item-name">${esc(r.prospectName||'Unknown')}</div>
             <div class="item-subject">${esc(r.subject||'')} <span class="timestamp">· ${timeAgo(r.sentAt)}</span></div>
