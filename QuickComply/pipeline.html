@@ -380,9 +380,10 @@ function initials(name) { return name.split(' ').map(w=>w[0]).join('').slice(0,2
 
 // load from storage or use demo
 function loadProspects() {
+  // Try sessionStorage first (more reliable for same-tab opens)
   try {
-    const stored = localStorage.getItem('cp_selected');
-    if (stored) { const arr = JSON.parse(stored); if(arr.length) return arr; }
+    const s = sessionStorage.getItem('cp_selected') || localStorage.getItem('cp_selected');
+    if (s) { const arr = JSON.parse(s); if(arr && arr.length) return arr; }
   } catch(e) {}
   return DEMO;
 }
@@ -390,8 +391,13 @@ function loadProspects() {
 // ── INIT ───────────────────────────────────────────────────────────────────────
 function init() {
   selectedProspects = loadProspects();
-  document.getElementById('prospect-count').textContent = `${selectedProspects.length} prospect${selectedProspects.length!==1?'s':''}`;
-  renderProspectChips();
+  const count = selectedProspects.length;
+  document.getElementById('prospect-count').textContent = `${count} prospect${count!==1?'s':''}`;
+  if (count === 0) {
+    document.getElementById('prospect-chips').innerHTML = `<div style="color:var(--muted);font-size:12px;padding:8px 0">No prospects selected. Go back to triage and select prospects first.</div>`;
+  } else {
+    renderProspectChips();
+  }
 }
 
 function renderProspectChips() {
@@ -614,13 +620,6 @@ Return JSON:
   }
 
   results[p.id]._prospect = p;
-}
-
-    results[p.id]._prospect = p;
-  } catch(e) {
-    console.error('Generate error for', p.name, e);
-    results[p.id] = { _error: e.message, _prospect: p, signals:[], bio:null, email:null, compliance:null };
-  }
 }
 
 // ── STEP 3 RENDER ──────────────────────────────────────────────────────────────
