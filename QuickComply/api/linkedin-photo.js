@@ -6,7 +6,7 @@ export default async function handler(req, res) {
   try {
     const resp = await fetch(
       `https://piloterr.com/api/v2/linkedin/profile/info?query=${encodeURIComponent(url)}`,
-      { headers: { 'x-api-key': process.env.PILOTERR_API_KEY } }
+      { headers: { 'x-api-key': '77095151-e25a-44ff-a0eb-b317eb001353' } }
     );
     if (!resp.ok) return res.status(resp.status).json({ error: 'Piloterr error' });
     const data = await resp.json();
