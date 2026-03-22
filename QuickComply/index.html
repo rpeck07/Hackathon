@@ -620,13 +620,25 @@ function catReason(p, cat) {
 
 
 
-function getAvatarUrl(p) {
+// Cache so we don't re-fetch the same person twice
+const _avatarCache = {};
+
+async function resolveAvatar(p) {
   if (p._img) return p._img;
   if (!p.linkedin) return null;
-  const handle = p.linkedin.replace(/https?:\/\/(www\.)?linkedin\.com\/in\//,'').replace(/\/$/,'').trim();
-  if (!handle || handle.includes('linkedin.com')) return null;
-  return `https://unavatar.io/linkedin/${encodeURIComponent(handle)}`;
+  if (_avatarCache[p.id] !== undefined) return _avatarCache[p.id];
+  try {
+    const resp = await fetch('/api/linkedin-photo?url=' + encodeURIComponent(p.linkedin));
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data.image) { p._img = data.image; _avatarCache[p.id] = data.image; return data.image; }
+    }
+  } catch(e) {}
+  _avatarCache[p.id] = null;
+  return null;
 }
+
+function getAvatarUrl(p) { return p._img || null; }
 
 function setAvatarOnEl(el, url) {
   if (!el || !url) return;
@@ -640,13 +652,12 @@ function setAvatarOnEl(el, url) {
 
 async function loadAvatars() {
   const toLoad = prospects.filter(p => p.linkedin && !p._img).slice(0, 20);
-  toLoad.forEach(p => {
-    const url = getAvatarUrl(p);
+  await Promise.all(toLoad.map(async p => {
+    const url = await resolveAvatar(p);
     if (!url) return;
-    p._img = url;
     const wrap = document.querySelector(`[data-id="${p.id}"] .card-avatar-wrap`);
     setAvatarOnEl(wrap, url);
-  });
+  }));
 }
 
 function init(data) {
@@ -768,10 +779,13 @@ function sortProspects(val) {
 function openDetail(id) {
   const p = prospects.find(x=>x.id===id);
   if(!p) return;
-  // Fetch avatar when opening detail
+  // Fetch avatar when opening detail (async, updates once loaded)
   if (!p._img) {
-    const url = getAvatarUrl(p);
-    if (url) p._img = url;
+    resolveAvatar(p).then(url => {
+      if (!url) return;
+      const avatarEl = document.querySelector('#detail-overlay .detail-avatar-wrap');
+      if (avatarEl) setAvatarOnEl(avatarEl, url);
+    });
   }
   const pc = {contact:'cp-g',potential:'cp-y',dnc:'cp-r'}[p.category];
   const pl = {contact:'● Contact',potential:'◐ Potentially contact',dnc:'○ Do not contact'}[p.category];
@@ -779,8 +793,8 @@ function openDetail(id) {
   document.getElementById('dm-sub').textContent = `${p.role} · ${p.location}`;
   document.getElementById('dm-body').innerHTML = `
     <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
-      <div style="width:52px;height:52px;border-radius:50%;overflow:hidden;background:var(--surface2);border:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;color:var(--text3);position:relative">
-        ${p._img ? `<img src="${p._img}" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0" onerror="this.remove()">` : ''}
+      <div class="detail-avatar-wrap" style="width:52px;height:52px;border-radius:50%;overflow:hidden;background:var(--surface2);border:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;color:var(--text3);position:relative">
+        ${p._img ? `<img src="${p._img}" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;border-radius:50%" onerror="this.remove()">` : ''}
         <span style="position:relative">${p.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}</span>
       </div>
       <span class="cpill ${pc}" style="display:inline-flex">${pl}</span>
