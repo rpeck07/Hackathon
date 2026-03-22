@@ -620,25 +620,22 @@ function catReason(p, cat) {
 
 
 
-// Cache so we don't re-fetch the same person twice
-const _avatarCache = {};
-
-async function resolveAvatar(p) {
+// Generate a polished avatar URL from name — instant, no API needed
+function getAvatarUrl(p) {
   if (p._img) return p._img;
-  if (!p.linkedin) return null;
-  if (_avatarCache[p.id] !== undefined) return _avatarCache[p.id];
-  try {
-    const resp = await fetch('/api/linkedin-photo?url=' + encodeURIComponent(p.linkedin));
-    if (resp.ok) {
-      const data = await resp.json();
-      if (data.image) { p._img = data.image; _avatarCache[p.id] = data.image; return data.image; }
-    }
-  } catch(e) {}
-  _avatarCache[p.id] = null;
-  return null;
+  const name = encodeURIComponent(p.name || 'Unknown');
+  // Pick a background color based on name hash for consistency
+  const colors = ['1e3a5f','2d4a3e','3d2b4a','4a2b2b','2b3d4a','3a3018','1a3a2d','2e1f3e'];
+  let hash = 0;
+  for (let i = 0; i < (p.name||'').length; i++) hash = (p.name.charCodeAt(i) + ((hash<<5) - hash));
+  const bg = colors[Math.abs(hash) % colors.length];
+  const url = `https://ui-avatars.com/api/?name=${name}&background=${bg}&color=d4b896&size=128&bold=true&format=svg&font-size=0.4`;
+  p._img = url;
+  return url;
 }
 
-function getAvatarUrl(p) { return p._img || null; }
+async function resolveAvatar(p) { return getAvatarUrl(p); }
+
 
 function setAvatarOnEl(el, url) {
   if (!el || !url) return;
@@ -650,14 +647,14 @@ function setAvatarOnEl(el, url) {
   el.prepend(img);
 }
 
-async function loadAvatars() {
-  const toLoad = prospects.filter(p => p.linkedin && !p._img).slice(0, 20);
-  await Promise.all(toLoad.map(async p => {
-    const url = await resolveAvatar(p);
+function loadAvatars() {
+  const toLoad = prospects.filter(p => !p._img).slice(0, 20);
+  toLoad.forEach(p => {
+    const url = getAvatarUrl(p);
     if (!url) return;
     const wrap = document.querySelector(`[data-id="${p.id}"] .card-avatar-wrap`);
-    setAvatarOnEl(wrap, url);
-  }));
+    if (wrap) setAvatarOnEl(wrap, url);
+  });
 }
 
 function init(data) {
@@ -779,14 +776,8 @@ function sortProspects(val) {
 function openDetail(id) {
   const p = prospects.find(x=>x.id===id);
   if(!p) return;
-  // Fetch avatar when opening detail (async, updates once loaded)
-  if (!p._img) {
-    resolveAvatar(p).then(url => {
-      if (!url) return;
-      const avatarEl = document.querySelector('#detail-overlay .detail-avatar-wrap');
-      if (avatarEl) setAvatarOnEl(avatarEl, url);
-    });
-  }
+  // Get avatar (instant - generated from name)
+  getAvatarUrl(p);
   const pc = {contact:'cp-g',potential:'cp-y',dnc:'cp-r'}[p.category];
   const pl = {contact:'● Contact',potential:'◐ Potentially contact',dnc:'○ Do not contact'}[p.category];
   document.getElementById('dm-name').textContent = p.name;
