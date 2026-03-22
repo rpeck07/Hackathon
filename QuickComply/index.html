@@ -579,9 +579,9 @@ function renderEmptyState() {
       <div style="display:flex;gap:8px;margin-top:20px;max-width:480px;margin-left:auto;margin-right:auto;">
         <input type="text" id="custom-filter-input" placeholder="Or describe who you want to target..." 
           style="flex:1;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:10px 14px;color:#e8eaf0;font-size:13px;outline:none;font-family:'Instrument Sans',sans-serif;"
-          onkeydown="if(event.key==='Enter'){var v=this.value.trim();if(v){quickPrompt(v);this.value='';}}"
+          onkeydown="if(event.key==='Enter'){var v=this.value.trim();if(v){this.value='';quickPrompt(v);}}"
         />
-        <button onclick="var v=document.getElementById('custom-filter-input').value.trim();if(v){quickPrompt(v);document.getElementById('custom-filter-input').value='';}"
+        <button onclick="var v=document.getElementById('custom-filter-input').value.trim();if(v){document.getElementById('custom-filter-input').value='';quickPrompt(v);}"
           style="padding:10px 18px;background:#c8b97a;border:none;border-radius:8px;color:#0d0f12;font-size:13px;font-weight:600;cursor:pointer;font-family:'Instrument Sans',sans-serif;">
           Go
         </button>
@@ -618,12 +618,53 @@ function catReason(p, cat) {
   return p.potential_concerns[0] || 'Low combined score — no event, below AUM threshold.';
 }
 
+// LinkedIn image cache
+const _imgCache = {};
+
+async function fetchLinkedInImage(prospect) {
+  if (!prospect.linkedin) return null;
+  if (_imgCache[prospect.id] !== undefined) return _imgCache[prospect.id];
+  try {
+    // Use unavatar.io which proxies LinkedIn profile photos
+    const handle = prospect.linkedin.replace(/.*linkedin\.com\/in\//,'').replace(/\//,'').trim();
+    if (!handle) return null;
+    // Try unavatar LinkedIn
+    const url = `https://unavatar.io/linkedin/${handle}?fallback=false`;
+    _imgCache[prospect.id] = url;
+    return url;
+  } catch(e) {
+    _imgCache[prospect.id] = null;
+    return null;
+  }
+}
+
+async function loadAvatars() {
+  const toLoad = prospects.filter(p => p.linkedin && !p._img);
+  if (!toLoad.length) return;
+  // Load in batches of 5 to avoid overwhelming
+  for (let i = 0; i < toLoad.length; i += 5) {
+    const batch = toLoad.slice(i, i + 5);
+    await Promise.all(batch.map(async p => {
+      const url = await fetchLinkedInImage(p);
+      if (url) {
+        p._img = url;
+        // Update just this card's avatar without full re-render
+        const card = document.querySelector(`[data-id="${p.id}"] .card-avatar-img`);
+        if (card) card.src = url;
+      }
+    }));
+    renderGrid(); // re-render after each batch
+  }
+}
+
 function init(data) {
   prospects = data.map(p => ({...p, category: p.category || categorize(p)}));
   prospects.forEach(p => { p.catReason = catReason(p, p.category); });
   sortProspects('urgency');
   updateCounts();
   renderGrid();
+  // Load avatars async after grid is shown
+  setTimeout(loadAvatars, 300);
 }
 
 // ─── RENDER ────────────────────────────────────────────────────────────────────
@@ -655,8 +696,13 @@ function renderGrid() {
       <div class="card-check" onclick="toggleSel(event,${p.id})"><span class="chk-icon">✓</span></div>
       <div class="card-body" style="cursor:pointer" onclick="openDetail(${p.id})">
         <div class="card-top">
-          <div><div class="card-name">${p.name}</div><div class="card-role">${p.role}</div></div>
-          <div class="cpill ${pc}">${pl}</div>
+          <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
+            <div style="width:36px;height:36px;border-radius:50%;flex-shrink:0;overflow:hidden;background:var(--surface2);border:1px solid var(--border)">
+              ${p._img ? `<img src="${p._img}" style="width:100%;height:100%;object-fit:cover" onerror="this.parentNode.innerHTML='<div style=\'width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--text3)\'>${p.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}</div>'">`  : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--text3)">${p.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}</div>`}
+            </div>
+            <div style="min-width:0"><div class="card-name">${p.name}</div><div class="card-role" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.role}</div></div>
+          </div>
+          <div class="cpill ${pc}" style="flex-shrink:0">${pl}</div>
         </div>
         <div class="scores">
           <div class="schip">ICP <b>${p.icp_score}</b></div>
@@ -1029,6 +1075,14 @@ async function sendChat() {
 
   addChatMsg('user', msg);
   chatHistory.push({role:'user', content: msg});
+
+  // Show searching state in grid immediately
+  if (hasUploaded && !hasFiltered) {
+    document.getElementById('grid').innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--text3)">
+      <div style="width:28px;height:28px;border:2px solid rgba(212,184,150,.3);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 14px"></div>
+      <div style="font-size:13px">Searching across ${allProspects.length} prospects...</div>
+    </div>`;
+  }
 
   const sendBtn = document.getElementById('chat-send-btn');
   sendBtn.disabled = true;
