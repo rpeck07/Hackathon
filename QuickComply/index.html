@@ -3,11 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet"></noscript>
 <title>Compliant Prospector — Triage</title>
 
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap');
-
 :root {
   --bg: #0f1117;
   --bg2: #13151e;
@@ -415,7 +417,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
         <span class="cprompt" onclick="quickPrompt('Who should I email first today?')">Who first today?</span>
       </div>
       <div class="chat-input-row">
-        <textarea class="chat-input" id="chat-input" placeholder="Ask about your prospects..." rows="1"
+        <textarea class="chat-input" id="chat-input" autofocus placeholder="Ask about your prospects..." rows="1"
           onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}"></textarea>
         <button class="chat-send" id="chat-send-btn" onclick="sendChat()">↑</button>
       </div>
@@ -548,10 +550,8 @@ function initEmpty() {
   renderEmptyState();
   updateCounts();
   // Show welcome message in chat
-  setTimeout(() => {
-    document.getElementById('chat-msgs').innerHTML = '';
-    addChatMsg('ai', 'Welcome to Compliant Prospector. Start by uploading your CRM file using the <b>Upload CRM</b> button above, then tell me what kind of prospects you want to target.');
-  }, 100);
+  document.getElementById('chat-msgs').innerHTML = '';
+  addChatMsg('ai', 'Welcome. Upload your CRM file using the <b>Upload CRM</b> button above, then tell me who you want to target.');
 }
 
 function renderEmptyState() {
@@ -621,40 +621,35 @@ function catReason(p, cat) {
 // LinkedIn image cache
 const _imgCache = {};
 
-async function fetchLinkedInImage(prospect) {
+function fetchLinkedInImage(prospect) {
   if (!prospect.linkedin) return null;
-  if (_imgCache[prospect.id] !== undefined) return _imgCache[prospect.id];
-  try {
-    // Use unavatar.io which proxies LinkedIn profile photos
-    const handle = prospect.linkedin.replace(/.*linkedin\.com\/in\//,'').replace(/\//,'').trim();
-    if (!handle) return null;
-    // Try unavatar LinkedIn
-    const url = `https://unavatar.io/linkedin/${handle}?fallback=false`;
-    _imgCache[prospect.id] = url;
-    return url;
-  } catch(e) {
-    _imgCache[prospect.id] = null;
-    return null;
-  }
+  const handle = prospect.linkedin.replace(/.*linkedin\.com\/in\//,'').replace(/\/$/, '').trim();
+  if (!handle) return null;
+  return `https://unavatar.io/linkedin/${handle}?fallback=false`;
 }
 
 async function loadAvatars() {
-  const toLoad = prospects.filter(p => p.linkedin && !p._img);
+  const toLoad = prospects.filter(p => p.linkedin && !p._img).slice(0, 20); // max 20
   if (!toLoad.length) return;
-  // Load in batches of 5 to avoid overwhelming
-  for (let i = 0; i < toLoad.length; i += 5) {
-    const batch = toLoad.slice(i, i + 5);
-    await Promise.all(batch.map(async p => {
-      const url = await fetchLinkedInImage(p);
-      if (url) {
-        p._img = url;
-        // Update just this card's avatar without full re-render
-        const card = document.querySelector(`[data-id="${p.id}"] .card-avatar-img`);
-        if (card) card.src = url;
+  // Fire all in parallel, update avatars in-place without re-rendering
+  toLoad.forEach(p => {
+    const handle = (p.linkedin||'').replace(/.*linkedin\.com\/in\//,'').replace(/\//,'').trim();
+    if (!handle) return;
+    p._img = `https://unavatar.io/linkedin/${handle}?fallback=false`;
+    // Update avatar img if card is already rendered
+    const avatarEl = document.querySelector(`[data-id="${p.id}"] .card-avatar-wrap`);
+    if (avatarEl) {
+      const img = avatarEl.querySelector('img');
+      if (img) img.src = p._img;
+      else {
+        const newImg = document.createElement('img');
+        newImg.src = p._img;
+        newImg.style.cssText = 'width:100%;height:100%;object-fit:cover;position:absolute;inset:0';
+        newImg.onerror = function(){ this.remove(); };
+        avatarEl.appendChild(newImg);
       }
-    }));
-    renderGrid(); // re-render after each batch
-  }
+    }
+  });
 }
 
 function init(data) {
@@ -663,8 +658,8 @@ function init(data) {
   sortProspects('urgency');
   updateCounts();
   renderGrid();
-  // Load avatars async after grid is shown
-  setTimeout(loadAvatars, 300);
+  // Load avatars async well after grid is shown
+  setTimeout(loadAvatars, 1500);
 }
 
 // ─── RENDER ────────────────────────────────────────────────────────────────────
@@ -697,8 +692,9 @@ function renderGrid() {
       <div class="card-body" style="cursor:pointer" onclick="openDetail(${p.id})">
         <div class="card-top">
           <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
-            <div style="width:36px;height:36px;border-radius:50%;flex-shrink:0;overflow:hidden;background:var(--surface2);border:1px solid var(--border)">
-              ${p._img ? `<img src="${p._img}" style="width:100%;height:100%;object-fit:cover" onerror="this.parentNode.innerHTML='<div style=\'width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--text3)\'>${p.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}</div>'">`  : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--text3)">${p.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}</div>`}
+            <div class="card-avatar-wrap" style="width:36px;height:36px;border-radius:50%;flex-shrink:0;overflow:hidden;background:var(--surface2);border:1px solid var(--border);position:relative;display:flex;align-items:center;justify-content:center;">
+              ${p._img ? `<img src="${p._img}" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0" onerror="this.remove()">` : ''}
+              <span style="font-size:11px;font-weight:600;color:var(--text3);position:relative;z-index:0">${p.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}</span>
             </div>
             <div style="min-width:0"><div class="card-name">${p.name}</div><div class="card-role" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.role}</div></div>
           </div>
