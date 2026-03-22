@@ -671,9 +671,14 @@ function renderBio(p, r) {
   const bio = r.bio;
   if (!bio) return `<div style="color:var(--muted);padding:20px">Bio not available.</div>`;
   const pi = selectedProspects.indexOf(p);
+  // Load avatar when bio renders
+  const avatarUrl = getAvatarUrl(p);
   return `<div class="bio-page">
     <div class="bio-top">
-      <div class="bio-avatar" style="background:${avatarColor(pi)}22;color:${avatarColor(pi)};font-size:20px">${initials(p.name)}</div>
+      <div class="bio-avatar" style="background:${avatarColor(pi)}22;color:${avatarColor(pi)};font-size:18px;position:relative;overflow:hidden">
+        ${avatarUrl ? `<img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;border-radius:50%" onerror="this.remove()">` : ''}
+        <span style="position:relative">${initials(p.name)}</span>
+      </div>
       <div>
         <div class="bio-name">${p.name}</div>
         <div class="bio-role">${p.role} · ${p.location}</div>
@@ -886,6 +891,17 @@ function sendToReview(pid) {
 
 function printView() {
   window.print();
+}
+
+// ── AVATAR ────────────────────────────────────────────────────────────────────
+function getAvatarUrl(p) {
+  if (p._img) return p._img;
+  if (!p.linkedin) return null;
+  const handle = p.linkedin.replace(/https?:\/\/(www\.)?linkedin\.com\/in\//,'').replace(/\/$/,'').trim();
+  if (!handle || handle.includes('linkedin.com')) return null;
+  const url = `https://unavatar.io/linkedin/${encodeURIComponent(handle)}`;
+  p._img = url;
+  return url;
 }
 
 // ── TONE + STATE REGS + HELPERS ────────────────────────────────────────────────
