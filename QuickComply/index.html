@@ -725,8 +725,12 @@ function saveEdit() {
 
 // ─── EMAIL MODAL ───────────────────────────────────────────────────────────────
 function launchPipeline(ids) {
-  const selected = ids.map(id => prospects.find(p=>p.id===id)).filter(Boolean);
-  try { localStorage.setItem('cp_selected', JSON.stringify(selected)); } catch(e) {}
+  const sel = ids.map(id => prospects.find(p=>p.id===id)).filter(Boolean);
+  try { 
+    const json = JSON.stringify(sel);
+    sessionStorage.setItem('cp_selected', json);
+    localStorage.setItem('cp_selected', json); 
+  } catch(e) {}
   window.open('pipeline.html','_blank');
 }
 
