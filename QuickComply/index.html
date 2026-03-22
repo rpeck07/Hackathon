@@ -399,6 +399,11 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
     <div class="header">
       <div class="logo">Compliant Prospector <em>— triage</em></div>
       <div class="header-actions">
+        <button onclick="openInboxPanel()" id="inbox-tab-btn" style="display:flex;align-items:center;gap:6px;padding:6px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text3);font-size:12px;cursor:pointer;transition:all .15s;position:relative;" onmouseover="this.style.color='var(--text)';this.style.borderColor='var(--border3)'" onmouseout="this.style.color='var(--text3)';this.style.borderColor='var(--border2)'">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          Inbox
+          <span id="inbox-badge" style="display:none;background:var(--rose);color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:600;margin-left:2px;font-family:'Geist Mono',monospace;"></span>
+        </button>
         <label class="upload-btn" for="crm-upload">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           Upload CRM
@@ -476,6 +481,21 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
     </div>
   </aside>
 
+</div>
+
+<!-- INBOX PANEL -->
+<div id="inbox-panel" style="display:none;position:fixed;inset:0;z-index:300;display:none;">
+  <div style="position:absolute;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);" onclick="closeInboxPanel()"></div>
+  <div style="position:absolute;right:0;top:0;bottom:0;width:560px;background:var(--surface);border-left:1px solid var(--border2);display:flex;flex-direction:column;box-shadow:var(--shadow-lg);overflow:hidden;">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:56px;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <div style="font-family:'Playfair Display',Georgia,serif;font-size:16px;color:var(--text);">Advisor Inbox</div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <a href="advisor-inbox.html" target="_blank" style="font-size:11px;color:var(--text3);text-decoration:none;padding:5px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);transition:all .15s;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text3)'">Open full view ↗</a>
+        <button onclick="closeInboxPanel()" style="background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;padding:4px;line-height:1;">✕</button>
+      </div>
+    </div>
+    <div id="inbox-panel-body" style="flex:1;overflow-y:auto;padding:16px;"></div>
+  </div>
 </div>
 
 <!-- BATCH BAR -->
@@ -1442,6 +1462,109 @@ function handleUpload(e) {
 
 // ─── UTIL ──────────────────────────────────────────────────────────────────────
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ─── INBOX PANEL ───────────────────────────────────────────────────────────────
+function getInboxReviews() {
+  try { return JSON.parse(localStorage.getItem('cp_pending_reviews') || '[]'); } catch(e) { return []; }
+}
+
+function updateInboxBadge() {
+  const reviews = getInboxReviews();
+  const urgent = reviews.filter(r => r.status === 'rejected' || r.status === 'approved').length;
+  const badge = document.getElementById('inbox-badge');
+  if (!badge) return;
+  if (urgent > 0) { badge.textContent = urgent; badge.style.display = 'inline'; }
+  else badge.style.display = 'none';
+}
+
+function openInboxPanel() {
+  const panel = document.getElementById('inbox-panel');
+  panel.style.display = 'block';
+  renderInboxPanel();
+}
+
+function closeInboxPanel() {
+  document.getElementById('inbox-panel').style.display = 'none';
+}
+
+function renderInboxPanel() {
+  const reviews = getInboxReviews();
+  const body = document.getElementById('inbox-panel-body');
+  if (!reviews.length) {
+    body.innerHTML = `<div style="text-align:center;padding:60px 20px;color:var(--text3)">
+      <div style="font-size:28px;margin-bottom:10px;opacity:.2">✉</div>
+      <div style="font-family:'Playfair Display',serif;font-size:16px;color:var(--text);margin-bottom:6px;">No emails submitted yet</div>
+      <div style="font-size:12px;">Submit emails for compliance review from the research pipeline.</div>
+    </div>`;
+    return;
+  }
+  const COLORS = ['#7c3aed','#0284c7','#059669','#d97706','#db2777','#ea580c'];
+  function ini(n){ return (n||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
+  function timeAgo(iso){ if(!iso) return ''; const d=Date.now()-new Date(iso).getTime(); if(d<60000) return 'just now'; if(d<3600000) return Math.floor(d/60000)+'m ago'; return Math.floor(d/3600000)+'h ago'; }
+
+  body.innerHTML = reviews.map((r, idx) => {
+    const color = COLORS[idx % COLORS.length];
+    const statusStyles = {
+      pending: {bg:'var(--amber-bg)',border:'var(--amber-border)',color:'var(--amber)',label:'Awaiting review'},
+      approved: {bg:'var(--emerald-bg)',border:'var(--emerald-border)',color:'var(--emerald)',label:'✓ Approved — ready to send'},
+      rejected: {bg:'var(--rose-bg)',border:'var(--rose-border)',color:'var(--rose)',label:'✕ Rejected — needs revision'},
+      revised: {bg:'var(--sky-bg)',border:'var(--sky-border)',color:'var(--sky)',label:'Revised — awaiting review'},
+      sent: {bg:'var(--accent2)',border:'rgba(212,184,150,.25)',color:'var(--accent)',label:'✓ Sent'}
+    };
+    const s = statusStyles[r.status] || statusStyles.pending;
+    const isRejected = r.status === 'rejected';
+    const isApproved = r.status === 'approved';
+
+    return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:10px;${isRejected?'border-left:3px solid var(--rose)':isApproved?'border-left:3px solid var(--emerald)':''}">
+      <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+        <div style="width:32px;height:32px;border-radius:50%;background:${color}22;color:${color};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0;">${ini(r.prospectName)}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.prospectName||'Unknown'}</div>
+          <div style="font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.subject||''} · ${timeAgo(r.sentAt)}</div>
+        </div>
+        <span style="padding:3px 9px;border-radius:20px;font-size:10px;font-family:'Geist Mono',monospace;background:${s.bg};color:${s.color};border:1px solid ${s.border};white-space:nowrap;flex-shrink:0;">${s.label}</span>
+      </div>
+      <div style="display:none;padding:0 14px 14px;">
+        ${isRejected ? `<div style="padding:10px 12px;background:var(--rose-bg);border:1px solid var(--rose-border);border-radius:var(--radius-sm);font-size:12px;color:rgba(244,63,94,.85);margin-bottom:10px;"><strong style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--rose);margin-bottom:4px;">Rejection reason</strong>${r.rejectionReason||'No reason given'}</div>` : ''}
+        ${isApproved ? `<div style="padding:8px 12px;background:var(--emerald-bg);border:1px solid var(--emerald-border);border-radius:var(--radius-sm);font-size:12px;color:rgba(52,211,153,.85);margin-bottom:10px;">✓ Approved — enter prospect email and send directly.</div>` : ''}
+        <div style="font-size:11px;color:var(--text3);font-family:'Geist Mono',monospace;margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;">Email preview</div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;font-size:12px;line-height:1.6;color:var(--text2);max-height:120px;overflow-y:auto;white-space:pre-wrap;margin-bottom:10px;">${r.body||''}</div>
+        ${isApproved ? `
+        <div style="display:flex;gap:6px;">
+          <input type="email" id="panel-to-${idx}" value="${r.prospectEmail||'jadiengunnip@gmail.com'}" placeholder="prospect@email.com" style="flex:1;background:var(--surface);border:1px solid var(--emerald-border);border-radius:var(--radius-sm);padding:7px 10px;color:var(--text);font-size:12px;outline:none;">
+          <button onclick="sendFromPanel(${idx})" style="padding:7px 16px;background:var(--emerald);color:#0d0f12;border:none;border-radius:var(--radius-sm);font-size:12px;font-weight:600;cursor:pointer;">Send</button>
+        </div>` : ''}
+        ${isRejected ? `<a href="advisor-inbox.html" target="_blank" style="display:inline-block;padding:7px 14px;background:var(--sky-bg);border:1px solid var(--sky-border);border-radius:var(--radius-sm);font-size:12px;color:var(--sky);text-decoration:none;">Edit & resubmit in full view →</a>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function sendFromPanel(idx) {
+  const reviews = getInboxReviews();
+  const r = reviews[idx];
+  const toEmail = document.getElementById('panel-to-'+idx)?.value?.trim() || r.prospectEmail || 'jadiengunnip@gmail.com';
+  const btn = document.querySelector(`[onclick="sendFromPanel(${idx})"]`);
+  if (btn) { btn.textContent = '...'; btn.disabled = true; }
+  try {
+    await emailjs.send('service_zjvkf3m', 'template_quud2b7', {
+      to_email: toEmail, subject: r.subject, message: r.body,
+      from_email: 'ryancp207@gmail.com', from_name: 'Ryan Peck'
+    });
+    reviews[idx].status = 'sent';
+    reviews[idx].sentToProspect = toEmail;
+    reviews[idx].sentToProspectAt = new Date().toISOString();
+    try { localStorage.setItem('cp_pending_reviews', JSON.stringify(reviews)); } catch(e) {}
+    updateInboxBadge();
+    renderInboxPanel();
+  } catch(e) {
+    if (btn) { btn.textContent = 'Send'; btn.disabled = false; }
+    alert('Send failed: ' + (e.text || e.message || JSON.stringify(e)));
+  }
+}
+
+// Poll badge every 5s
+setInterval(updateInboxBadge, 5000);
 
 // ─── BOOT ──────────────────────────────────────────────────────────────────────
 initEmpty();
