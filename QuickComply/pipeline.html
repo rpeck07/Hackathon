@@ -671,21 +671,13 @@ function renderBio(p, r) {
   const bio = r.bio;
   if (!bio) return `<div style="color:var(--muted);padding:20px">Bio not available.</div>`;
   const pi = selectedProspects.indexOf(p);
-  // Async load avatar after render
-  setTimeout(async () => {
-    const url = await getAvatarUrl(p);
-    if (!url) return;
-    const wrap = document.querySelector('.bio-avatar-wrap');
-    if (!wrap) return;
-    const img = document.createElement('img');
-    img.src = url; img.style.cssText = 'width:100%;height:100%;object-fit:cover;position:absolute;inset:0;border-radius:50%';
-    img.onerror = () => img.remove();
-    wrap.prepend(img);
-  }, 100);
+  // Get avatar synchronously
+  const avatarUrl = getAvatarUrl(p);
   return `<div class="bio-page">
     <div class="bio-top">
-      <div class="bio-avatar bio-avatar-wrap" style="background:${avatarColor(pi)}22;color:${avatarColor(pi)};font-size:18px;position:relative;overflow:hidden">
-        <span style="position:relative">${initials(p.name)}</span>
+      <div class="bio-avatar" style="background:${avatarColor(pi)}22;color:${avatarColor(pi)};font-size:18px;position:relative;overflow:hidden">
+        ${avatarUrl ? `<img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;border-radius:50%" onerror="this.remove()">` : ''}
+        <span style="position:relative;z-index:1">${initials(p.name)}</span>
       </div>
       <div>
         <div class="bio-name">${p.name}</div>
@@ -902,15 +894,22 @@ function printView() {
 }
 
 // ── AVATAR ────────────────────────────────────────────────────────────────────
-async function getAvatarUrl(p) {
+// Generate a polished avatar URL from name — instant, no API needed
+function getAvatarUrl(p) {
   if (p._img) return p._img;
-  if (!p.linkedin) return null;
-  try {
-    const resp = await fetch('/api/linkedin-photo?url=' + encodeURIComponent(p.linkedin));
-    if (resp.ok) { const d = await resp.json(); if (d.image) { p._img = d.image; return d.image; } }
-  } catch(e) {}
-  return null;
+  const name = encodeURIComponent(p.name || 'Unknown');
+  // Pick a background color based on name hash for consistency
+  const colors = ['1e3a5f','2d4a3e','3d2b4a','4a2b2b','2b3d4a','3a3018','1a3a2d','2e1f3e'];
+  let hash = 0;
+  for (let i = 0; i < (p.name||'').length; i++) hash = (p.name.charCodeAt(i) + ((hash<<5) - hash));
+  const bg = colors[Math.abs(hash) % colors.length];
+  const url = `https://ui-avatars.com/api/?name=${name}&background=${bg}&color=d4b896&size=128&bold=true&format=svg&font-size=0.4`;
+  p._img = url;
+  return url;
 }
+
+async function resolveAvatar(p) { return getAvatarUrl(p); }
+
 
 // ── TONE + STATE REGS + HELPERS ────────────────────────────────────────────────
 function currentProspectData() {
