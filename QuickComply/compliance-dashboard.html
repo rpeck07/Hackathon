@@ -181,11 +181,6 @@ function approveReview(idx) {
   reviews[idx].status = 'approved';
   reviews[idx].approvedAt = new Date().toISOString();
   saveReviews(reviews);
-
-  // Open Gmail to notify advisor
-  const r = reviews[idx];
-  const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=ryancp207@gmail.com&su=${encodeURIComponent(`[APPROVED] ${r.subject}`)}&body=${encodeURIComponent(`The following email has been APPROVED for sending.\n\nProspect: ${r.prospectName}\nSubject: ${r.subject}\n\n---\n${r.body}\n\n---\nApproved by Compliance Officer\n${new Date().toLocaleString()}`)}&from=jadiengunnip@gmail.com`;
-  window.open(gmailUrl, '_blank');
   render();
 }
 
@@ -203,10 +198,6 @@ function submitRejection(idx) {
   reviews[idx].rejectedAt = new Date().toISOString();
   saveReviews(reviews);
 
-  // Open Gmail to notify advisor of rejection
-  const r = reviews[idx];
-  const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=ryancp207@gmail.com&su=${encodeURIComponent(`[REJECTED] ${r.subject}`)}&body=${encodeURIComponent(`The following email has been REJECTED.\n\nProspect: ${r.prospectName}\nSubject: ${r.subject}\n\nREASON FOR REJECTION:\n${reason}\n\nPlease revise and resubmit for review.\n\n---\nCompliance Officer\n${new Date().toLocaleString()}`)}&from=jadiengunnip@gmail.com`;
-  window.open(gmailUrl, '_blank');
   render();
 }
 
@@ -297,7 +288,10 @@ function render() {
     return `<div class="review-card">
       <div class="rc-header" onclick="toggleCard(${idx})">
         <div class="rc-left">
-          <div class="rc-avatar" style="background:${color}22;color:${color}">${initials(r.prospectName||'?')}</div>
+          <div class="rc-avatar" style="background:${color}22;color:${color};overflow:hidden;position:relative">
+        ${r.prospectImg ? `<img src="${r.prospectImg}" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0" onerror="this.remove()">` : ''}
+        <span style="position:relative;z-index:1">${initials(r.prospectName||'?')}</span>
+      </div>
           <div>
             <div class="rc-name">${esc(r.prospectName||'Unknown')}</div>
             <div class="rc-role">${esc(r.prospectRole||'')} <span class="timestamp">· Submitted ${timeAgo(r.sentAt)}</span></div>
