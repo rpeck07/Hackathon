@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Compliant Prospector — Research Pipeline</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0d0f12; --surface:#141720; --surface2:#1c2030; --surface3:#222840;
+  --border:rgba(255,255,255,0.07); --border2:rgba(255,255,255,0.13);
+  --text:#e8eaf0; --muted:#6b7280; --accent:#c8b97a; --accent-dim:rgba(200,185,122,0.1);
+  --green:#22c55e; --green-bg:rgba(34,197,94,0.09); --green-border:rgba(34,197,94,0.22);
+  --yellow:#f59e0b; --yellow-bg:rgba(245,158,11,0.09); --yellow-border:rgba(245,158,11,0.22);
+  --red:#ef4444; --red-bg:rgba(239,68,68,0.07); --red-border:rgba(239,68,68,0.18);
+  --blue:#60a5fa; --blue-bg:rgba(96,165,250,0.09); --blue-border:rgba(96,165,250,0.22);
+  --purple:#a78bfa; --purple-bg:rgba(167,139,250,0.09); --purple-border:rgba(167,139,250,0.22);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Instrument Sans',sans-serif;font-size:14px;line-height:1.5;min-height:100vh;}
+button,input,select,textarea{font-family:'Instrument Sans',sans-serif;}
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-thumb{background:var(--surface3);border-radius:3px;}
+
+/* NAV */
+.topnav{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:100;}
+.logo{font-family:'DM Serif Display',serif;font-size:18px;color:var(--accent);}
+.logo em{font-style:italic;font-size:12px;color:var(--muted);font-family:'Instrument Sans',sans-serif;margin-left:8px;}
+.nav-back{display:flex;align-items:center;gap:6px;padding:7px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:7px;color:var(--muted);font-size:12px;cursor:pointer;transition:all .15s;}
+.nav-back:hover{color:var(--text);border-color:var(--border2);}
+
+/* PIPELINE STEPS */
+.pipeline-wrap{max-width:1100px;margin:0 auto;padding:28px 24px;}
+
+/* STEP HEADER */
+.step-header{display:flex;align-items:center;gap:12px;margin-bottom:20px;}
+.step-num{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-family:'DM Mono',monospace;font-weight:500;flex-shrink:0;}
+.step-num.active{background:var(--accent);color:#0d0f12;}
+.step-num.done{background:var(--green-bg);border:1px solid var(--green-border);color:var(--green);}
+.step-num.waiting{background:var(--surface2);border:1px solid var(--border);color:var(--muted);}
+.step-title{font-family:'DM Serif Display',serif;font-size:20px;}
+.step-sub{color:var(--muted);font-size:12px;margin-top:2px;}
+
+/* SECTION CARD */
+.section-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:28px;}
+.section-card-hdr{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.section-card-hdr h3{font-size:14px;font-weight:600;}
+.section-card-body{padding:20px;}
+
+/* PROSPECT CHIPS */
+.prospect-chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px;}
+.pchip{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;}
+.pchip-avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0;}
+.pchip-name{font-size:12px;font-weight:500;}
+.pchip-role{font-size:10px;color:var(--muted);}
+.pchip-cat{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+
+/* SIGNAL CONFIG */
+.signal-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px;}
+.signal-source{padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:10px;}
+.signal-source:hover{border-color:var(--border2);}
+.signal-source.on{border-color:var(--accent);background:var(--accent-dim);}
+.signal-source.on .src-name{color:var(--accent);}
+.src-icon{font-size:18px;width:28px;text-align:center;}
+.src-name{font-size:12px;font-weight:500;}
+.src-desc{font-size:10px;color:var(--muted);}
+.src-toggle{margin-left:auto;width:14px;height:14px;border-radius:50%;border:1.5px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:9px;transition:all .15s;}
+.signal-source.on .src-toggle{background:var(--accent);border-color:var(--accent);color:#0d0f12;}
+
+/* TIMEFRAME */
+.timeframe-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:18px;}
+.tf-label{font-size:12px;color:var(--muted);font-family:'DM Mono',monospace;letter-spacing:.04em;text-transform:uppercase;margin-right:4px;}
+.tf-btn{padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:none;color:var(--muted);font-size:12px;cursor:pointer;transition:all .15s;}
+.tf-btn:hover{border-color:var(--border2);color:var(--text);}
+.tf-btn.active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent);}
+.tf-custom{display:flex;align-items:center;gap:6px;}
+.tf-custom input{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 8px;color:var(--text);font-size:11px;width:110px;outline:none;}
+.tf-custom input:focus{border-color:rgba(200,185,122,.4);}
+
+/* RUN BUTTON */
+.run-btn{display:flex;align-items:center;gap:8px;padding:11px 24px;background:var(--accent);border:none;border-radius:8px;color:#0d0f12;font-size:13px;font-weight:600;cursor:pointer;transition:opacity .15s;}
+.run-btn:hover{opacity:.88;}
+.run-btn:disabled{opacity:.4;cursor:default;}
+
+/* PROGRESS */
+.progress-wrap{margin-bottom:20px;}
+.progress-prospect{margin-bottom:14px;}
+.pp-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.pp-name{font-size:13px;font-weight:500;}
+.pp-pct{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);}
+.pp-sources{display:flex;flex-direction:column;gap:5px;}
+.source-row{display:flex;align-items:center;gap:10px;font-size:11px;}
+.source-row-icon{width:20px;text-align:center;font-size:13px;}
+.source-bar-wrap{flex:1;height:4px;background:var(--surface2);border-radius:2px;overflow:hidden;}
+.source-bar{height:100%;border-radius:2px;transition:width .4s ease;background:var(--accent);}
+.source-status{width:60px;text-align:right;color:var(--muted);font-family:'DM Mono',monospace;font-size:10px;}
+.source-status.done{color:var(--green);}
+.source-status.err{color:var(--red);}
+
+/* TABS */
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:20px;}
+.tab{padding:10px 18px;font-size:12px;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;font-weight:500;}
+.tab:hover{color:var(--text);}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+
+/* BIO PAGE */
+.bio-page{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:28px 32px;max-width:800px;margin:0 auto;}
+.bio-top{display:flex;gap:20px;margin-bottom:24px;align-items:flex-start;}
+.bio-avatar{width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:600;flex-shrink:0;}
+.bio-name{font-family:'DM Serif Display',serif;font-size:24px;margin-bottom:4px;}
+.bio-role{color:var(--muted);font-size:13px;margin-bottom:8px;}
+.bio-tags{display:flex;gap:6px;flex-wrap:wrap;}
+.bio-tag{padding:3px 10px;border-radius:20px;font-size:11px;font-family:'DM Mono',monospace;}
+.bio-section{margin-bottom:20px;}
+.bio-section h4{font-size:10px;font-family:'DM Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border);}
+.bio-section p{font-size:13px;line-height:1.7;color:var(--text);}
+.signal-items{display:flex;flex-direction:column;gap:8px;}
+.signal-item{display:flex;gap:12px;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;}
+.sig-source-badge{padding:2px 8px;border-radius:3px;font-size:10px;font-family:'DM Mono',monospace;white-space:nowrap;align-self:flex-start;flex-shrink:0;}
+.sig-content{flex:1;}
+.sig-headline{font-size:12px;font-weight:500;margin-bottom:3px;}
+.sig-body{font-size:11px;color:var(--muted);line-height:1.5;}
+.sig-date{font-size:10px;color:var(--muted);font-family:'DM Mono',monospace;margin-top:4px;}
+.sig-relevance{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--accent);margin-top:4px;}
+
+/* EMAIL PAGE */
+.email-composer{max-width:800px;margin:0 auto;}
+.email-field{margin-bottom:14px;}
+.email-field label{display:block;font-size:10px;font-family:'DM Mono',monospace;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:5px;}
+.email-field input,.email-field textarea{background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:9px 12px;color:var(--text);font-size:13px;width:100%;outline:none;transition:border-color .15s;}
+.email-field textarea{min-height:220px;resize:vertical;line-height:1.7;}
+.email-field input:focus,.email-field textarea:focus{border-color:rgba(200,185,122,.4);}
+.regen-btn{display:flex;align-items:center;gap:6px;padding:7px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:7px;color:var(--muted);font-size:12px;cursor:pointer;transition:all .15s;margin-top:10px;}
+.regen-btn:hover{color:var(--accent);border-color:rgba(200,185,122,.3);}
+
+/* COMPLIANCE PAGE */
+.compliance-report{max-width:800px;margin:0 auto;}
+.cr-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-radius:10px 10px 0 0;border:1px solid var(--border);border-bottom:none;background:var(--surface2);}
+.cr-score{display:flex;align-items:center;gap:10px;}
+.cr-score-num{font-family:'DM Serif Display',serif;font-size:32px;}
+.cr-score-label{font-size:11px;color:var(--muted);}
+.cr-verdict{padding:4px 14px;border-radius:20px;font-size:12px;font-family:'DM Mono',monospace;font-weight:500;}
+.verdict-pass{background:var(--green-bg);color:var(--green);border:1px solid var(--green-border);}
+.verdict-warn{background:var(--yellow-bg);color:var(--yellow);border:1px solid var(--yellow-border);}
+.verdict-fail{background:var(--red-bg);color:var(--red);border:1px solid var(--red-border);}
+.cr-items{border:1px solid var(--border);border-radius:0 0 10px 10px;overflow:hidden;}
+.cr-item{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;gap:14px;}
+.cr-item:last-child{border-bottom:none;}
+.cr-icon{font-size:16px;flex-shrink:0;margin-top:1px;}
+.cr-content{flex:1;}
+.cr-rule{font-size:13px;font-weight:500;margin-bottom:3px;}
+.cr-explanation{font-size:12px;color:var(--muted);line-height:1.55;margin-bottom:4px;}
+.cr-ref{font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);}
+.cr-edit-suggestion{margin-top:8px;padding:8px 10px;background:var(--surface2);border-radius:6px;font-size:11px;color:var(--yellow);border:1px solid var(--yellow-border);}
+
+/* MEETING PREP PAGE */
+.meeting-prep{max-width:800px;margin:0 auto;}
+.prep-section{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:18px 20px;margin-bottom:14px;}
+.prep-section h4{font-size:11px;font-family:'DM Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;}
+.prep-items{display:flex;flex-direction:column;gap:8px;}
+.prep-item{display:flex;gap:10px;font-size:13px;line-height:1.55;}
+.prep-item::before{content:'→';color:var(--accent);flex-shrink:0;font-size:12px;margin-top:2px;}
+.talking-pts .prep-item::before{content:'💬';}
+.red-flags .prep-item::before{content:'⚠️';}
+.ice-breakers .prep-item::before{content:'🤝';}
+.agenda-items .prep-item::before{content:'📋';}
+
+/* ACTION BAR */
+.action-bar{display:flex;gap:10px;align-items:center;padding:16px 20px;border-top:1px solid var(--border);background:var(--surface);}
+.abtn{padding:9px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;border:1px solid var(--border2);}
+.abtn-primary{background:var(--accent);color:#0d0f12;border-color:var(--accent);}
+.abtn-primary:hover{opacity:.88;}
+.abtn-secondary{background:none;color:var(--muted);}
+.abtn-secondary:hover{color:var(--text);border-color:var(--border2);}
+.abtn:disabled{opacity:.4;cursor:default;}
+
+/* STATUS */
+.status-pill{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-size:11px;font-family:'DM Mono',monospace;}
+.sp-loading{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-border);}
+.sp-done{background:var(--green-bg);color:var(--green);border:1px solid var(--green-border);}
+.sp-warn{background:var(--yellow-bg);color:var(--yellow);border:1px solid var(--yellow-border);}
+.spin{width:12px;height:12px;border:2px solid rgba(96,165,250,.3);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* PROSPECT SELECTOR TABS */
+.prospect-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;}
+.ptab{display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:7px;border:1px solid var(--border);background:none;color:var(--muted);font-size:12px;cursor:pointer;transition:all .15s;}
+.ptab:hover{border-color:var(--border2);}
+.ptab.active{border-color:var(--accent);background:var(--accent-dim);color:var(--text);}
+.ptab-dot{width:7px;height:7px;border-radius:50%;}
+
+/* UTIL */
+.loading-shimmer{background:linear-gradient(90deg,var(--surface2) 25%,var(--surface3) 50%,var(--surface2) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:6px;height:14px;}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.hidden{display:none;}
+.divider{height:1px;background:var(--border);margin:16px 0;}
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="logo">Compliant Prospector <em>— research pipeline</em></div>
+  <div style="display:flex;gap:8px;align-items:center">
+    <div id="global-status"></div>
+    <button class="nav-back" onclick="window.history.back()">← Back to triage</button>
+  </div>
+</nav>
+
+<div class="pipeline-wrap">
+
+  <!-- STEP 1: SELECTED PROSPECTS + SIGNAL CONFIG -->
+  <div id="step1">
+    <div class="step-header">
+      <div class="step-num active" id="snum1">1</div>
+      <div><div class="step-title">Configure research</div><div class="step-sub">Select signal sources and time window for each prospect</div></div>
+    </div>
+
+    <div class="section-card">
+      <div class="section-card-hdr"><h3>Selected prospects</h3><span id="prospect-count" style="font-size:12px;color:var(--muted)"></span></div>
+      <div class="section-card-body">
+        <div class="prospect-chips" id="prospect-chips"></div>
+        <div class="divider"></div>
+
+        <!-- SIGNAL SOURCES -->
+        <div style="margin-bottom:14px">
+          <div style="font-size:11px;font-family:'DM Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Signal sources</div>
+          <div class="signal-grid" id="signal-sources">
+            <div class="signal-source on" data-source="linkedin" onclick="toggleSource(this)">
+              <div class="src-icon">💼</div>
+              <div><div class="src-name">LinkedIn</div><div class="src-desc">Role changes, posts, news</div></div>
+              <div class="src-toggle">✓</div>
+            </div>
+            <div class="signal-source on" data-source="rss" onclick="toggleSource(this)">
+              <div class="src-icon">📰</div>
+              <div><div class="src-name">RSS / News</div><div class="src-desc">Press releases, coverage</div></div>
+              <div class="src-toggle">✓</div>
+            </div>
+            <div class="signal-source on" data-source="cision" onclick="toggleSource(this)">
+              <div class="src-icon">📡</div>
+              <div><div class="src-name">Cision</div><div class="src-desc">Breaking PR & wire news</div></div>
+              <div class="src-toggle">✓</div>
+            </div>
+            <div class="signal-source on" data-source="x" onclick="toggleSource(this)">
+              <div class="src-icon">𝕏</div>
+              <div><div class="src-name">X / Twitter</div><div class="src-desc">Mentions & activity</div></div>
+              <div class="src-toggle">✓</div>
+            </div>
+            <div class="signal-source" data-source="facebook" onclick="toggleSource(this)">
+              <div class="src-icon">𝗳</div>
+              <div><div class="src-name">Facebook</div><div class="src-desc">Public posts & events</div></div>
+              <div class="src-toggle"></div>
+            </div>
+            <div class="signal-source on" data-source="company" onclick="toggleSource(this)">
+              <div class="src-icon">🏢</div>
+              <div><div class="src-name">Company intel</div><div class="src-desc">Filings, funding, moves</div></div>
+              <div class="src-toggle">✓</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TIMEFRAME -->
+        <div style="margin-bottom:20px">
+          <div style="font-size:11px;font-family:'DM Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Signal time window</div>
+          <div class="timeframe-row">
+            <span class="tf-label">Pull signals from last</span>
+            <button class="tf-btn" onclick="setTF(this,'7d')">7 days</button>
+            <button class="tf-btn active" onclick="setTF(this,'30d')">30 days</button>
+            <button class="tf-btn" onclick="setTF(this,'90d')">90 days</button>
+            <button class="tf-btn" onclick="setTF(this,'180d')">6 months</button>
+            <button class="tf-btn" onclick="setTF(this,'365d')">1 year</button>
+            <div class="tf-custom">
+              <span style="font-size:11px;color:var(--muted)">or custom:</span>
+              <input type="date" id="tf-from" placeholder="From">
+              <span style="color:var(--muted);font-size:11px">→</span>
+              <input type="date" id="tf-to" placeholder="To">
+            </div>
+          </div>
+        </div>
+
+        <!-- PURPOSE -->
+        <div style="margin-bottom:20px">
+          <div style="font-size:11px;font-family:'DM Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Purpose</div>
+          <div style="display:flex;gap:8px;">
+            <button class="tf-btn active" id="purpose-outreach" onclick="setPurpose('outreach',this)">📧 Outreach email</button>
+            <button class="tf-btn" id="purpose-meeting" onclick="setPurpose('meeting',this)">🤝 Meeting prep</button>
+            <button class="tf-btn" id="purpose-both" onclick="setPurpose('both',this)">Both</button>
+          </div>
+        </div>
+
+        <button class="run-btn" id="run-btn" onclick="startPipeline()">
+          <span>▶</span> Run research pipeline
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 2: SIGNAL PULL PROGRESS -->
+  <div id="step2" class="hidden">
+    <div class="step-header">
+      <div class="step-num waiting" id="snum2">2</div>
+      <div><div class="step-title">Pulling signals</div><div class="step-sub" id="step2-sub">Gathering data across selected sources...</div></div>
+    </div>
+    <div class="section-card">
+      <div class="section-card-hdr"><h3>Research progress</h3><div id="pull-status" class="status-pill sp-loading"><div class="spin"></div>Running...</div></div>
+      <div class="section-card-body">
+        <div class="progress-wrap" id="progress-wrap"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 3: RESULTS -->
+  <div id="step3" class="hidden">
+    <div class="step-header">
+      <div class="step-num waiting" id="snum3">3</div>
+      <div><div class="step-title">Research results</div><div class="step-sub">Bio, signals, email draft, compliance review</div></div>
+    </div>
+
+    <div class="section-card">
+      <div class="section-card-hdr">
+        <h3>Results</h3>
+        <div style="display:flex;gap:8px;" id="result-actions"></div>
+      </div>
+      <div class="section-card-body" style="padding:0;">
+        <!-- Prospect selector tabs -->
+        <div style="padding:16px 20px 0;" id="prospect-tabs-wrap"></div>
+        <!-- Content tabs -->
+        <div style="padding:0 20px;">
+          <div class="tabs" id="content-tabs">
+            <div class="tab active" onclick="switchTab('bio',this)">📄 Biography</div>
+            <div class="tab" onclick="switchTab('signals',this)">📡 Signals</div>
+            <div class="tab" onclick="switchTab('email',this)" id="email-tab">✉ Email draft</div>
+            <div class="tab" onclick="switchTab('compliance',this)" id="compliance-tab">⚖ Compliance</div>
+            <div class="tab hidden" onclick="switchTab('meeting',this)" id="meeting-tab">🤝 Meeting prep</div>
+          </div>
+        </div>
+        <div style="padding:20px;" id="tab-content"></div>
+      </div>
+      <div class="action-bar" id="action-bar"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── STATE ──────────────────────────────────────────────────────────────────────
+let selectedProspects = [];
+let activeSources = new Set(['linkedin','rss','cision','x','company']);
+let timeframe = '30d';
+let purpose = 'outreach';
+let currentProspectIdx = 0;
+let currentTab = 'bio';
+let results = {}; // keyed by prospect id
+let generating = {};
+
+// ── DEMO PROSPECTS (passed from triage page — use localStorage fallback) ───────
+const DEMO = [
+  {id:7,name:"Priya Nair",role:"Co-Founder, Lumina AI",location:"Miami, FL",icp_score:90,urgency_score:91,icp_category:"Startup Founder",category:"contact",
+    summary:"Lumina AI was acquired by a public company last month for $85M. Priya holds ~18% equity. Currently in a 6-month earnout window.",
+    why_now:["Acquisition closed 30 days ago","Earnout window is active","Complex tax situation requires immediate planning"],
+    match_reasons:["Recent acquisition — confirmed liquidity","18% founder equity stake","Earnout structure creates planning complexity"],
+    potential_concerns:["Acquiring company may have preferred wealth management partners"],
+    outreach_angle:"Lead with earnout tax complexity and the urgency of Q4 planning. This is a time-sensitive, high-value opportunity."},
+  {id:1,name:"Sarah Chen",role:"CFO, Meridian Capital Group",location:"Miami, FL",icp_score:92,urgency_score:88,icp_category:"C-Suite Executive",category:"contact",
+    summary:"Recently stepped down as CFO following Meridian's acquisition by a PE firm. Likely navigating a significant liquidity event and exploring next steps.",
+    why_now:["Acquisition closed 6 weeks ago","90-day executive transition window","No current advisor relationship flagged"],
+    match_reasons:["PE acquisition liquidity event","Exiting executive with vested equity","Miami-based wealth concentration"],
+    potential_concerns:["May have existing Goldman relationship","Short window before PE firm assigns advisor"],
+    outreach_angle:"Congratulate on the acquisition milestone, acknowledge transition complexity, offer a no-pressure intro call."},
+  {id:9,name:"Natalie Russo",role:"Inheritance recipient",location:"Coral Gables, FL",icp_score:96,urgency_score:97,icp_category:"Wealth Transfer",category:"contact",
+    summary:"Received a $12M estate inheritance following her father's passing 45 days ago. No advisor confirmed.",
+    why_now:["Inheritance received 45 days ago","Probate closed — capital is liquid","Estate planning and tax filings due"],
+    match_reasons:["Confirmed $12M inheritance","No established wealth management relationship","First-time HNW individual"],
+    potential_concerns:["Emotionally sensitive timing — recent bereavement","Approach must be empathetic, not transactional"],
+    outreach_angle:"Approach with extreme care and empathy. Lead with estate settlement support and long-term stewardship, not product."}
+];
+
+const COLORS = ['#7c3aed','#0284c7','#059669','#d97706','#db2777','#ea580c'];
+function avatarColor(i) { return COLORS[i % COLORS.length]; }
+function initials(name) { return name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
+
+// load from storage or use demo
+function loadProspects() {
+  try {
+    const stored = localStorage.getItem('cp_selected');
+    if (stored) { const arr = JSON.parse(stored); if(arr.length) return arr; }
+  } catch(e) {}
+  return DEMO;
+}
+
+// ── INIT ───────────────────────────────────────────────────────────────────────
+function init() {
+  selectedProspects = loadProspects();
+  document.getElementById('prospect-count').textContent = `${selectedProspects.length} prospect${selectedProspects.length!==1?'s':''}`;
+  renderProspectChips();
+}
+
+function renderProspectChips() {
+  const wrap = document.getElementById('prospect-chips');
+  wrap.innerHTML = selectedProspects.map((p,i) => `
+    <div class="pchip">
+      <div class="pchip-avatar" style="background:${avatarColor(i)}22;color:${avatarColor(i)}">${initials(p.name)}</div>
+      <div><div class="pchip-name">${p.name}</div><div class="pchip-role">${p.role.split(',')[0]}</div></div>
+      <div class="pchip-cat" style="background:${{contact:'var(--green)',potential:'var(--yellow)',dnc:'var(--red)'}[p.category]}"></div>
+    </div>`).join('');
+}
+
+function toggleSource(el) {
+  const src = el.dataset.source;
+  el.classList.toggle('on');
+  const toggle = el.querySelector('.src-toggle');
+  if (el.classList.contains('on')) { activeSources.add(src); toggle.textContent='✓'; }
+  else { activeSources.delete(src); toggle.textContent=''; }
+}
+
+function setTF(btn, val) {
+  document.querySelectorAll('.tf-btn').forEach(b => { if(['7d','30d','90d','180d','365d'].includes(b.textContent.trim().replace(/ days?| months?| year/,'')||b.dataset?.tf)) b.classList.remove('active'); });
+  document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  timeframe = val;
+  document.getElementById('tf-from').value = '';
+  document.getElementById('tf-to').value = '';
+}
+
+function setPurpose(p, btn) {
+  purpose = p;
+  document.querySelectorAll('#purpose-outreach,#purpose-meeting,#purpose-both').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  if (p === 'meeting' || p === 'both') document.getElementById('meeting-tab')?.classList.remove('hidden');
+  else document.getElementById('meeting-tab')?.classList.add('hidden');
+}
+
+// ── PIPELINE ───────────────────────────────────────────────────────────────────
+async function startPipeline() {
+  document.getElementById('run-btn').disabled = true;
+  document.getElementById('step2').classList.remove('hidden');
+  document.getElementById('snum2').className = 'step-num active';
+
+  const sources = [...activeSources];
+  const wrap = document.getElementById('progress-wrap');
+
+  // Build progress UI for each prospect
+  wrap.innerHTML = selectedProspects.map((p,pi) => `
+    <div class="progress-prospect" id="pp-${p.id}">
+      <div class="pp-header">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="width:22px;height:22px;border-radius:50%;background:${avatarColor(pi)}22;color:${avatarColor(pi)};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700">${initials(p.name)}</div>
+          <span class="pp-name">${p.name}</span>
+        </div>
+        <span class="pp-pct" id="pp-pct-${p.id}">0%</span>
+      </div>
+      <div class="pp-sources">
+        ${sources.map(s => `
+          <div class="source-row" id="sr-${p.id}-${s}">
+            <span class="source-row-icon">${{linkedin:'💼',rss:'📰',cision:'📡',x:'𝕏',facebook:'𝗳',company:'🏢'}[s]}</span>
+            <span style="width:90px;font-size:11px;color:var(--muted)">${{linkedin:'LinkedIn',rss:'RSS/News',cision:'Cision',x:'X',facebook:'Facebook',company:'Company'}[s]}</span>
+            <div class="source-bar-wrap"><div class="source-bar" id="bar-${p.id}-${s}" style="width:0%"></div></div>
+            <span class="source-status" id="ss-${p.id}-${s}">pending</span>
+          </div>`).join('')}
+      </div>
+      ${pi < selectedProspects.length-1 ? '<div class="divider" style="margin-top:14px"></div>' : ''}
+    </div>`).join('');
+
+  // Simulate parallel pulls + generate with Claude
+  for (let pi = 0; pi < selectedProspects.length; pi++) {
+    const p = selectedProspects[pi];
+    results[p.id] = { signals: [], bio: null, email: null, compliance: null, meetingPrep: null };
+    await pullSignals(p, sources, pi);
+  }
+
+  // All done — move to step 3
+  document.getElementById('snum2').className = 'step-num done';
+  document.getElementById('snum2').textContent = '✓';
+  document.getElementById('pull-status').className = 'status-pill sp-done';
+  document.getElementById('pull-status').innerHTML = '<span>✓</span> All signals pulled';
+  document.getElementById('step3').classList.remove('hidden');
+  document.getElementById('snum3').className = 'step-num active';
+  renderStep3();
+}
+
+async function pullSignals(p, sources, pi) {
+  // Animate each source pull (simulate API delay with staggered timers)
+  const delays = sources.map((_,i) => 400 + i * 300 + Math.random() * 400);
+  const total = sources.length;
+  let done = 0;
+
+  await Promise.all(sources.map(async (src, si) => {
+    await sleep(delays[si]);
+    // Animate bar fill
+    await animateBar(`bar-${p.id}-${src}`, 0, 100, 600);
+    document.getElementById(`ss-${p.id}-${src}`).textContent = 'done';
+    document.getElementById(`ss-${p.id}-${src}`).className = 'source-status done';
+    done++;
+    document.getElementById(`pp-pct-${p.id}`).textContent = `${Math.round(done/total*70)}%`;
+  }));
+
+  // Now generate bio + email + compliance via Claude
+  document.getElementById(`pp-pct-${p.id}`).textContent = '75% — generating...';
+  await generateAll(p);
+  document.getElementById(`pp-pct-${p.id}`).textContent = '100%';
+  document.getElementById(`pp-pct-${p.id}`).style.color = 'var(--green)';
+}
+
+// Safe JSON parser — handles truncated responses by attempting to close open structures
+// ── JSON EXTRACTION ───────────────────────────────────────────────────────────
+function extractJSON(raw) {
+  if (!raw || !raw.trim()) throw new Error('Empty API response');
+  let s = raw.replace(/^```json\s*/im,'').replace(/^```\s*/im,'').replace(/\s*```$/,'').trim();
+  // Direct parse
+  try { return JSON.parse(s); } catch(_) {}
+  // Find outermost braces
+  const start = s.indexOf('{');
+  const end = s.lastIndexOf('}');
+  if (start !== -1 && end > start) {
+    try { return JSON.parse(s.slice(start, end + 1)); } catch(_) {}
+  }
+  // Repair: drop trailing incomplete value, close open structures
+  if (start !== -1) s = s.slice(start);
+  s = s.replace(/,\s*"[^"]*"\s*:\s*"[^"]*$/, ''); // partial string value
+  s = s.replace(/,\s*"[^"]*"\s*:\s*\[[^\]]*$/, ''); // partial array
+  s = s.replace(/,\s*"[^"]*"\s*$/, '');             // partial key
+  s = s.replace(/,(\s*[}\]])/g, '$1');              // trailing commas
+  const stack = [];
+  let inStr = false, esc = false;
+  for (const c of s) {
+    if (esc) { esc = false; continue; }
+    if (c === '\\' && inStr) { esc = true; continue; }
+    if (c === '"') { inStr = !inStr; continue; }
+    if (inStr) continue;
+    if (c === '{') stack.push('}');
+    else if (c === '[') stack.push(']');
+    else if ((c === '}' || c === ']') && stack.length) stack.pop();
+  }
+  if (inStr) s += '"';
+  s += stack.reverse().join('');
+  try { return JSON.parse(s); } catch(e) {
+    throw new Error('JSON repair failed: ' + e.message + ' | first 200: ' + s.slice(0,200));
+  }
+}
+
+// ── API CALL ──────────────────────────────────────────────────────────────────
+async function callClaude(system, user, maxTokens) {
+  const resp = await fetch('/api/proxy', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-5',
+      max_tokens: maxTokens,
+      system: system,
+      messages: [{ role: 'user', content: user }]
+    })
+  });
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err.error?.message || 'API error ' + resp.status);
+  }
+  const data = await resp.json();
+  const text = (data.content || []).filter(c => c.type === 'text').map(c => c.text).join('');
+  if (!text.trim()) throw new Error('API returned empty text');
+  return text;
+}
+
+// ── GENERATE (4 atomic calls) ─────────────────────────────────────────────────
+async function generateAll(p) {
+  const tfLabel = {'7d':'past 7 days','30d':'past 30 days','90d':'past 90 days','180d':'past 6 months','365d':'past year'}[timeframe] || timeframe;
+  const srcList = [...activeSources].join(', ');
+  const doMeeting = purpose === 'meeting' || purpose === 'both';
+
+  const SYS = 'You are a financial advisor AI assistant. Output ONLY raw valid JSON — no markdown fences, no prose, no trailing commas. Strictly obey all word/char limits.';
+
+  const mini = `Name: ${p.name}
+Role: ${p.role} | Location: ${p.location} | Category: ${p.icp_category}
+Summary: ${p.summary}
+Why Now: ${(p.why_now||[]).slice(0,3).join(' | ')}
+Concerns: ${(p.potential_concerns||[]).slice(0,2).join(' | ')}
+Angle: ${p.outreach_angle}`;
+
+  results[p.id] = { _prospect: p, signals:[], bio:null, email:null, compliance:null, meeting_prep:null };
+
+  // A: Signals — 3 items, very short
+  const sigCall = callClaude(SYS,
+    `3 research signals for this prospect from sources: ${srcList}, time: ${tfLabel}.
+${mini}
+JSON schema — return EXACTLY this structure, 3 array items:
+{"signals":[{"source":"linkedin","headline":"string max 12 words","body":"string max 30 words","date":"string","relevance":"string max 15 words","relevance_score":85},{"source":"rss","headline":"...","body":"...","date":"...","relevance":"...","relevance_score":78},{"source":"company","headline":"...","body":"...","date":"...","relevance":"...","relevance_score":70}]}`, 800)
+    .then(r => { try { const d = extractJSON(r); if (Array.isArray(d?.signals)) results[p.id].signals = d.signals; } catch(e) { console.warn('signals:', e.message); } });
+
+  // B: Bio — short fields
+  const bioCall = callClaude(SYS,
+    `Professional bio dossier for this prospect.
+${mini}
+Return JSON:
+{"bio":{"background":"2 short paragraphs max 70 words total","recent_developments":"max 50 words","wealth_event_summary":"max 50 words","key_facts":["max 10 words","max 10 words","max 10 words","max 10 words"]}}`, 700)
+    .then(r => { try { const d = extractJSON(r); if (d?.bio) results[p.id].bio = d.bio; } catch(e) { console.warn('bio:', e.message); } });
+
+  // C: Email + Compliance
+  const emailCall = callClaude(SYS,
+    `Outreach email + FINRA 2210 compliance check for this prospect.
+${mini}
+Email: warm tone, cite one Why Now trigger, NO return guarantees, max 160 words, end with "This is not investment advice. [Your Name] is a registered financial advisor."
+Return JSON:
+{"email":{"subject":"max 55 chars","body":"email text max 160 words"},"compliance":{"overall_score":94,"verdict":"pass","items":[{"status":"pass","rule":"No promissory language","explanation":"max 15 words","ref":"FINRA 2210(d)(1)"},{"status":"pass","rule":"Fair and balanced","explanation":"max 15 words","ref":"FINRA 2210(d)(1)(A)"},{"status":"pass","rule":"Disclosures present","explanation":"max 15 words","ref":"FINRA 2210(d)(3)"},{"status":"pass","rule":"No exaggerated claims","explanation":"max 15 words","ref":"FINRA 2210(d)(1)(B)"},{"status":"pass","rule":"Appropriate CTA","explanation":"max 15 words","ref":"FINRA 2210(d)(2)"}]}}`, 1200)
+    .then(r => { try { const d = extractJSON(r); if (d?.email) results[p.id].email = d.email; if (d?.compliance) results[p.id].compliance = d.compliance; } catch(e) { console.warn('email/compliance:', e.message); } });
+
+  await Promise.all([sigCall, bioCall, emailCall]);
+
+  // D: Meeting prep (sequential, only if needed)
+  if (doMeeting) {
+    await callClaude(SYS,
+      `Meeting prep for financial advisor meeting with this prospect.
+${mini}
+Return JSON:
+{"meeting_prep":{"intelligence_summary":"max 40 words","key_talking_points":["max 12 words","max 12 words","max 12 words","max 12 words"],"red_flags_to_avoid":["max 10 words","max 10 words","max 10 words"],"ice_breakers":["max 12 words","max 12 words"],"suggested_agenda":["max 10 words","max 10 words","max 10 words","max 10 words"]}}`, 600)
+      .then(r => { try { const d = extractJSON(r); if (d?.meeting_prep) results[p.id].meeting_prep = d.meeting_prep; } catch(e) { console.warn('meeting prep:', e.message); } });
+  }
+
+  results[p.id]._prospect = p;
+}
+
+    results[p.id]._prospect = p;
+  } catch(e) {
+    console.error('Generate error for', p.name, e);
+    results[p.id] = { _error: e.message, _prospect: p, signals:[], bio:null, email:null, compliance:null };
+  }
+}
+
+// ── STEP 3 RENDER ──────────────────────────────────────────────────────────────
+function renderStep3() {
+  // Prospect tabs
+  const tabsWrap = document.getElementById('prospect-tabs-wrap');
+  tabsWrap.innerHTML = selectedProspects.length > 1 ? `
+    <div class="prospect-tabs">
+      ${selectedProspects.map((p,i) => `
+        <button class="ptab${i===0?' active':''}" onclick="switchProspect(${i},this)">
+          <div class="ptab-dot" style="background:${avatarColor(i)}"></div>
+          ${p.name}
+        </button>`).join('')}
+    </div>` : '';
+
+  renderTabContent();
+  renderActionBar();
+}
+
+function switchProspect(idx, btn) {
+  currentProspectIdx = idx;
+  document.querySelectorAll('.ptab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  renderTabContent();
+  renderActionBar();
+}
+
+function switchTab(tab, el) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  if(el) el.classList.add('active');
+  renderTabContent();
+}
+
+function renderTabContent() {
+  const p = selectedProspects[currentProspectIdx];
+  const r = results[p.id];
+  const wrap = document.getElementById('tab-content');
+
+  if (!r || r._error) {
+    wrap.innerHTML = `<div style="text-align:center;padding:40px;color:var(--muted)">
+      <div style="margin-bottom:8px;font-size:18px;">⚠</div>
+      ${r?._error || 'Research still loading...'}</div>`;
+    return;
+  }
+
+  if (currentTab === 'bio') wrap.innerHTML = renderBio(p, r);
+  else if (currentTab === 'signals') wrap.innerHTML = renderSignals(r);
+  else if (currentTab === 'email') wrap.innerHTML = renderEmail(p, r);
+  else if (currentTab === 'compliance') wrap.innerHTML = renderCompliance(r);
+  else if (currentTab === 'meeting') wrap.innerHTML = renderMeetingPrep(r);
+}
+
+function renderBio(p, r) {
+  const bio = r.bio;
+  if (!bio) return `<div style="color:var(--muted);padding:20px">Bio not available.</div>`;
+  const pi = selectedProspects.indexOf(p);
+  return `<div class="bio-page">
+    <div class="bio-top">
+      <div class="bio-avatar" style="background:${avatarColor(pi)}22;color:${avatarColor(pi)};font-size:20px">${initials(p.name)}</div>
+      <div>
+        <div class="bio-name">${p.name}</div>
+        <div class="bio-role">${p.role} · ${p.location}</div>
+        <div class="bio-tags" style="margin-top:8px">
+          <span class="bio-tag" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted)">${p.icp_category}</span>
+          <span class="bio-tag" style="background:var(--green-bg);border:1px solid var(--green-border);color:var(--green)">ICP ${p.icp_score}</span>
+          <span class="bio-tag" style="background:var(--yellow-bg);border:1px solid var(--yellow-border);color:var(--yellow)">Urgency ${p.urgency_score}</span>
+        </div>
+      </div>
+    </div>
+    <div class="bio-section"><h4>Professional background</h4><p>${bio.background}</p></div>
+    <div class="bio-section"><h4>Recent developments</h4><p>${bio.recent_developments}</p></div>
+    <div class="bio-section"><h4>Wealth event analysis</h4><p>${bio.wealth_event_summary}</p></div>
+    ${bio.key_facts&&bio.key_facts.length?`<div class="bio-section"><h4>Key facts</h4>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
+        ${bio.key_facts.map(f=>`<div style="padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:7px;font-size:12px">${f}</div>`).join('')}
+      </div></div>` : ''}
+    <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);font-family:'DM Mono',monospace">
+      Research window: ${timeframe} · Sources: ${[...activeSources].join(', ')} · Generated ${new Date().toLocaleDateString()}
+    </div>
+  </div>`;
+}
+
+function renderSignals(r) {
+  const signals = r.signals || [];
+  if (!signals.length) return `<div style="color:var(--muted);padding:20px">No signals found.</div>`;
+  const srcColors = {linkedin:'#0077b5',rss:'#f97316',cision:'#8b5cf6',x:'#e2e8f0',facebook:'#1877f2',company:'#10b981'};
+  const sorted = [...signals].sort((a,b)=>(b.relevance_score||0)-(a.relevance_score||0));
+  return `<div class="signal-items">
+    ${sorted.map(s=>`<div class="signal-item">
+      <div>
+        <div class="sig-source-badge" style="background:${srcColors[s.source]||'#666'}22;color:${srcColors[s.source]||'#aaa'};border:1px solid ${srcColors[s.source]||'#666'}44">
+          ${{linkedin:'💼',rss:'📰',cision:'📡',x:'𝕏',facebook:'𝗳',company:'🏢'}[s.source]||'📌'} ${s.source}
+        </div>
+      </div>
+      <div class="sig-content">
+        <div class="sig-headline">${s.headline}</div>
+        <div class="sig-body">${s.body}</div>
+        <div class="sig-date">${s.date}</div>
+        ${s.relevance?`<div class="sig-relevance">↳ ${s.relevance}</div>`:''}
+      </div>
+      ${s.relevance_score?`<div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);flex-shrink:0;align-self:flex-start">${s.relevance_score}</div>`:''}
+    </div>`).join('')}
+  </div>`;
+}
+
+function renderEmail(p, r) {
+  const email = r.email;
+  if (!email) return `<div style="color:var(--muted);padding:20px">Email not generated.</div>`;
+  return `<div class="email-composer">
+    <div class="email-field"><label>To</label>
+      <input type="text" id="em-to" value="${p.name} &lt;${p.name.toLowerCase().replace(/\s+/g,'.')}@contact.com&gt;">
+    </div>
+    <div class="email-field"><label>Subject</label>
+      <input type="text" id="em-subject-${p.id}" value="${esc(email.subject)}">
+    </div>
+    <div class="email-field"><label>Body</label>
+      <textarea id="em-body-${p.id}">${esc(email.body)}</textarea>
+    </div>
+    <button class="regen-btn" onclick="regenEmail(${p.id})">
+      ↻ Regenerate with different angle
+    </button>
+  </div>`;
+}
+
+function renderCompliance(r) {
+  const c = r.compliance;
+  if (!c) return `<div style="color:var(--muted);padding:20px">Compliance check not run.</div>`;
+  const vclass = {pass:'verdict-pass',warn:'verdict-warn',fail:'verdict-fail'}[c.verdict]||'verdict-warn';
+  const scoreColor = c.overall_score >= 90 ? 'var(--green)' : c.overall_score >= 70 ? 'var(--yellow)' : 'var(--red)';
+  return `<div class="compliance-report">
+    <div class="cr-header">
+      <div class="cr-score">
+        <div class="cr-score-num" style="color:${scoreColor}">${c.overall_score}</div>
+        <div><div style="font-size:12px;font-weight:600">Compliance score</div><div class="cr-score-label">out of 100</div></div>
+      </div>
+      <span class="cr-verdict ${vclass}">${{pass:'✓ Cleared for review',warn:'⚠ Review recommended',fail:'✕ Requires edits'}[c.verdict]||c.verdict}</span>
+    </div>
+    <div class="cr-items">
+      ${(c.items||[]).map(item=>`<div class="cr-item">
+        <span class="cr-icon">${{pass:'✅',warn:'⚠️',fail:'❌'}[item.status]||'📋'}</span>
+        <div class="cr-content">
+          <div class="cr-rule">${item.rule}</div>
+          <div class="cr-explanation">${item.explanation}</div>
+          <div class="cr-ref">${item.ref}</div>
+          ${item.suggestion?`<div class="cr-edit-suggestion">Suggested edit: ${item.suggestion}</div>`:''}
+        </div>
+      </div>`).join('')}
+    </div>
+    <div style="margin-top:14px;padding:12px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-size:11px;color:var(--muted);line-height:1.6">
+      <b style="color:var(--text)">Audit trail:</b> This compliance review was generated against FINRA Rule 2210 (Communications with the Public). All flagged items require review by your firm's compliance officer before sending. This is not a substitute for formal legal review.
+    </div>
+  </div>`;
+}
+
+function renderMeetingPrep(r) {
+  const mp = r.meeting_prep;
+  if (!mp) return `<div style="color:var(--muted);padding:20px">Meeting prep not generated. Switch purpose to "Meeting prep" and re-run.</div>`;
+  return `<div class="meeting-prep">
+    ${mp.intelligence_summary?`<div class="prep-section">
+      <h4>Intelligence summary</h4>
+      <p style="font-size:13px;line-height:1.7;color:var(--text)">${mp.intelligence_summary}</p>
+    </div>`:''}
+    ${mp.key_talking_points?.length?`<div class="prep-section talking-pts">
+      <h4>Key talking points</h4>
+      <div class="prep-items">${mp.key_talking_points.map(t=>`<div class="prep-item">${t}</div>`).join('')}</div>
+    </div>`:''}
+    ${mp.suggested_agenda?.length?`<div class="prep-section agenda-items">
+      <h4>Suggested agenda</h4>
+      <div class="prep-items">${mp.suggested_agenda.map((t,i)=>`<div class="prep-item"><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);margin-right:4px">${i+1}.</span>${t}</div>`).join('')}</div>
+    </div>`:''}
+    ${mp.ice_breakers?.length?`<div class="prep-section ice-breakers">
+      <h4>Ice breakers</h4>
+      <div class="prep-items">${mp.ice_breakers.map(t=>`<div class="prep-item">${t}</div>`).join('')}</div>
+    </div>`:''}
+    ${mp.red_flags_to_avoid?.length?`<div class="prep-section red-flags">
+      <h4>Topics to avoid</h4>
+      <div class="prep-items">${mp.red_flags_to_avoid.map(t=>`<div class="prep-item">${t}</div>`).join('')}</div>
+    </div>`:''}
+  </div>`;
+}
+
+function renderActionBar() {
+  const p = selectedProspects[currentProspectIdx];
+  const r = results[p.id];
+  const bar = document.getElementById('action-bar');
+  const hasEmail = r?.email;
+  bar.innerHTML = `
+    <button class="abtn abtn-secondary" onclick="printView()">🖨 Print / Export PDF</button>
+    <button class="abtn abtn-secondary" onclick="switchTab('compliance', document.querySelectorAll('.tab')[3])">⚖ View compliance</button>
+    <button class="abtn abtn-primary" onclick="sendToReview()" ${hasEmail?'':'disabled'}>Send to compliance review →</button>`;
+}
+
+async function regenEmail(pid) {
+  const p = selectedProspects.find(x=>x.id===pid);
+  if(!p) return;
+  const subj = document.getElementById(`em-subject-${pid}`);
+  const body = document.getElementById(`em-body-${pid}`);
+  if(subj) subj.value = 'Regenerating...';
+  if(body) body.value = 'Generating new draft...';
+  const prompt = `Write a different personalized outreach email for ${p.name} (${p.role}).
+Context: ${p.summary}
+Why Now: ${(p.why_now||[]).join('; ')}
+Use a different angle than before. 140-180 words, non-promissory, end with disclosure line.
+Respond with JSON only (no markdown): {"subject":"...","body":"..."}`;
+  try {
+    const raw = await callClaude('Output only raw valid JSON, no markdown.', prompt, 600);
+    const parsed = extractJSON(raw);
+    if(subj) subj.value = parsed.subject || '';
+    if(body) body.value = parsed.body || '';
+    if(results[pid]) results[pid].email = parsed;
+  } catch(e) { if(body) body.value = 'Error regenerating — ' + e.message; }
+}
+
+function sendToReview() {
+  const p = selectedProspects[currentProspectIdx];
+  alert(`✓ Email for ${p.name} queued for compliance officer review.\n\nIn production this would push to your firm's approval workflow.`);
+}
+
+function printView() {
+  window.print();
+}
+
+// ── UTILS ──────────────────────────────────────────────────────────────────────
+function sleep(ms) { return new Promise(r=>setTimeout(r,ms)); }
+async function animateBar(id, from, to, dur) {
+  const el = document.getElementById(id); if(!el) return;
+  const start = Date.now();
+  return new Promise(r=>{
+    function frame() {
+      const t = Math.min((Date.now()-start)/dur,1);
+      el.style.width = (from+(to-from)*easeOut(t))+'%';
+      if(t<1) requestAnimationFrame(frame); else r();
+    }
+    frame();
+  });
+}
+function easeOut(t){ return 1-Math.pow(1-t,3); }
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ── BOOT ───────────────────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
