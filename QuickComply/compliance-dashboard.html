@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Compliance Dashboard — QuickComply</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0d0f12;--surface:#141720;--surface2:#1c2030;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);--text:#e8eaf0;--muted:#6b7280;--accent:#c8b97a;--green:#22c55e;--green-bg:rgba(34,197,94,0.09);--green-border:rgba(34,197,94,0.22);--yellow:#f59e0b;--yellow-bg:rgba(245,158,11,0.09);--yellow-border:rgba(245,158,11,0.22);--red:#ef4444;--red-bg:rgba(239,68,68,0.07);--red-border:rgba(239,68,68,0.18);--blue:#60a5fa;--blue-bg:rgba(96,165,250,0.09);--blue-border:rgba(96,165,250,0.22);}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Instrument Sans',sans-serif;font-size:14px;line-height:1.5;min-height:100vh;}
+button,input,select,textarea{font-family:'Instrument Sans',sans-serif;}
+::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-thumb{background:#222840;border-radius:3px;}
+
+.topnav{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:100;}
+.logo{font-family:'DM Serif Display',serif;font-size:18px;color:var(--accent);}
+.logo em{font-style:italic;font-size:12px;color:var(--muted);font-family:'Instrument Sans',sans-serif;margin-left:8px;}
+.role-badge{padding:5px 12px;border-radius:20px;font-size:11px;font-family:'DM Mono',monospace;}
+.role-co{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-border);}
+.role-fa{background:var(--green-bg);color:var(--green);border:1px solid var(--green-border);}
+
+.wrap{max-width:960px;margin:0 auto;padding:28px 24px;}
+
+/* VIEW TOGGLE */
+.view-toggle{display:flex;gap:8px;margin-bottom:24px;}
+.vtab{padding:8px 20px;border-radius:7px;border:1px solid var(--border);background:none;color:var(--muted);font-size:13px;cursor:pointer;transition:all .15s;}
+.vtab.active{background:var(--accent);color:#0d0f12;border-color:var(--accent);font-weight:600;}
+.vtab:hover:not(.active){border-color:var(--border2);color:var(--text);}
+
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px;}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;}
+.stat-num{font-family:'DM Serif Display',serif;font-size:28px;margin-bottom:4px;}
+.stat-label{font-size:11px;color:var(--muted);}
+
+/* REVIEW CARDS */
+.review-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:14px;overflow:hidden;transition:border-color .2s;}
+.review-card:hover{border-color:var(--border2);}
+.rc-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border);cursor:pointer;}
+.rc-left{display:flex;align-items:center;gap:12px;}
+.rc-avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex-shrink:0;}
+.rc-name{font-size:14px;font-weight:600;}
+.rc-role{font-size:11px;color:var(--muted);}
+.status-pill{padding:3px 10px;border-radius:20px;font-size:10px;font-family:'DM Mono',monospace;font-weight:500;}
+.sp-pending{background:var(--yellow-bg);color:var(--yellow);border:1px solid var(--yellow-border);}
+.sp-approved{background:var(--green-bg);color:var(--green);border:1px solid var(--green-border);}
+.sp-rejected{background:var(--red-bg);color:var(--red);border:1px solid var(--red-border);}
+.sp-revised{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-border);}
+.sp-sent{background:rgba(167,139,250,0.1);color:#a78bfa;border:1px solid rgba(167,139,250,0.25);}
+
+.rc-body{padding:18px;display:none;}
+.rc-body.open{display:block;}
+
+.email-preview{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:14px;}
+.ep-subject{font-size:13px;font-weight:600;margin-bottom:4px;}
+.ep-meta{font-size:11px;color:var(--muted);margin-bottom:10px;}
+.ep-body{font-size:12px;line-height:1.7;color:var(--text);white-space:pre-wrap;}
+
+.compliance-mini{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+.cm-item{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;font-size:11px;}
+.cm-pass{background:var(--green-bg);color:var(--green);border:1px solid var(--green-border);}
+.cm-warn{background:var(--yellow-bg);color:var(--yellow);border:1px solid var(--yellow-border);}
+.cm-fail{background:var(--red-bg);color:var(--red);border:1px solid var(--red-border);}
+
+.state-regs-mini{padding:8px 12px;background:var(--blue-bg);border:1px solid var(--blue-border);border-radius:7px;font-size:11px;color:var(--blue);margin-bottom:14px;}
+
+/* ACTIONS */
+.action-section{border-top:1px solid var(--border);padding-top:14px;}
+.action-row{display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;}
+.action-btn{padding:9px 20px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;border:1px solid var(--border2);}
+.btn-approve{background:var(--green);color:#0d0f12;border-color:var(--green);}
+.btn-approve:hover{opacity:.88;}
+.btn-reject{background:var(--red-bg);color:var(--red);border-color:var(--red-border);}
+.btn-reject:hover{background:rgba(239,68,68,.18);}
+.btn-send{background:var(--accent);color:#0d0f12;border-color:var(--accent);}
+.btn-send:hover{opacity:.88;}
+.btn-secondary{background:none;color:var(--muted);}
+.btn-secondary:hover{color:var(--text);border-color:var(--border2);}
+.btn-resend{background:var(--blue-bg);color:var(--blue);border-color:var(--blue-border);}
+.btn-resend:hover{background:rgba(96,165,250,.18);}
+
+.reject-form{margin-top:12px;width:100%;}
+.reject-textarea{width:100%;background:var(--surface2);border:1px solid var(--red-border);border-radius:7px;padding:10px 12px;color:var(--text);font-size:12px;resize:vertical;min-height:80px;outline:none;transition:border-color .15s;}
+.reject-textarea:focus{border-color:var(--red);}
+.reject-submit{margin-top:8px;padding:8px 16px;background:var(--red);color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;}
+
+.rejection-note{padding:10px 14px;background:var(--red-bg);border:1px solid var(--red-border);border-radius:7px;font-size:12px;color:#fca5a5;margin-bottom:14px;line-height:1.6;}
+.rejection-note strong{color:var(--red);display:block;margin-bottom:4px;}
+
+.approved-note{padding:10px 14px;background:var(--green-bg);border:1px solid var(--green-border);border-radius:7px;font-size:12px;color:#86efac;margin-bottom:14px;}
+
+/* FA REVISION VIEW */
+.revision-section{padding:14px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;margin-bottom:14px;}
+.revision-section label{display:block;font-size:10px;font-family:'DM Mono',monospace;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
+.revision-section textarea,.revision-section input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-size:12px;outline:none;transition:border-color .15s;}
+.revision-section textarea{min-height:160px;resize:vertical;line-height:1.6;}
+.revision-section textarea:focus,.revision-section input:focus{border-color:rgba(200,185,122,.4);}
+
+.send-direct-form{padding:14px 16px;background:var(--green-bg);border:1px solid var(--green-border);border-radius:8px;margin-bottom:14px;}
+.send-direct-form label{display:block;font-size:10px;font-family:'DM Mono',monospace;letter-spacing:.07em;text-transform:uppercase;color:var(--green);margin-bottom:6px;}
+.send-direct-form input{width:100%;background:var(--surface);border:1px solid var(--green-border);border-radius:6px;padding:8px 10px;color:var(--text);font-size:12px;outline:none;}
+
+.empty-state{text-align:center;padding:80px 20px;color:var(--muted);}
+.empty-state h3{font-family:'DM Serif Display',serif;font-size:20px;color:var(--text);margin-bottom:8px;}
+.timestamp{font-size:10px;font-family:'DM Mono',monospace;color:var(--muted);margin-top:4px;}
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="logo">QuickComply <em>— compliance dashboard</em></div>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <div id="role-display" class="role-badge role-co">Compliance Officer View</div>
+    <button onclick="toggleRole()" style="padding:6px 12px;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;color:var(--muted);font-size:11px;cursor:pointer;">Switch view</button>
+    <button onclick="clearAll()" style="padding:6px 12px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:11px;cursor:pointer;">Clear all</button>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="stats" id="stats-row">
+    <div class="stat-card"><div class="stat-num" id="s-total" style="color:var(--text)">0</div><div class="stat-label">Total reviews</div></div>
+    <div class="stat-card"><div class="stat-num" id="s-pending" style="color:var(--yellow)">0</div><div class="stat-label">Pending</div></div>
+    <div class="stat-card"><div class="stat-num" id="s-approved" style="color:var(--green)">0</div><div class="stat-label">Approved</div></div>
+    <div class="stat-card"><div class="stat-num" id="s-rejected" style="color:var(--red)">0</div><div class="stat-label">Rejected</div></div>
+  </div>
+
+  <div class="view-toggle">
+    <button class="vtab active" id="tab-co" onclick="setView('co',this)">Compliance Officer</button>
+    <button class="vtab" id="tab-fa" onclick="setView('fa',this)">Financial Advisor</button>
+  </div>
+
+  <div id="reviews-wrap"></div>
+</div>
+
+<script>
+const COLORS = ['#7c3aed','#0284c7','#059669','#d97706','#db2777','#ea580c'];
+function avatarColor(i){return COLORS[i%COLORS.length];}
+function initials(n){return n.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function timeAgo(iso){
+  const d=Date.now()-new Date(iso).getTime();
+  if(d<60000)return 'just now';
+  if(d<3600000)return Math.floor(d/60000)+'m ago';
+  if(d<86400000)return Math.floor(d/3600000)+'h ago';
+  return Math.floor(d/86400000)+'d ago';
+}
+
+let currentView = 'co'; // 'co' = compliance officer, 'fa' = financial advisor
+
+function toggleRole() {
+  currentView = currentView === 'co' ? 'fa' : 'co';
+  const display = document.getElementById('role-display');
+  display.textContent = currentView === 'co' ? 'Compliance Officer View' : 'Financial Advisor View';
+  display.className = 'role-badge ' + (currentView === 'co' ? 'role-co' : 'role-fa');
+  document.getElementById('tab-co').classList.toggle('active', currentView === 'co');
+  document.getElementById('tab-fa').classList.toggle('active', currentView === 'fa');
+  render();
+}
+
+function setView(v, btn) {
+  currentView = v;
+  document.querySelectorAll('.vtab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  const display = document.getElementById('role-display');
+  display.textContent = v === 'co' ? 'Compliance Officer View' : 'Financial Advisor View';
+  display.className = 'role-badge ' + (v === 'co' ? 'role-co' : 'role-fa');
+  render();
+}
+
+function getReviews() {
+  try { return JSON.parse(localStorage.getItem('cp_pending_reviews') || '[]'); }
+  catch(e) { return []; }
+}
+
+function saveReviews(arr) {
+  localStorage.setItem('cp_pending_reviews', JSON.stringify(arr));
+}
+
+function updateStats(reviews) {
+  document.getElementById('s-total').textContent = reviews.length;
+  document.getElementById('s-pending').textContent = reviews.filter(r=>r.status==='pending'||r.status==='revised').length;
+  document.getElementById('s-approved').textContent = reviews.filter(r=>r.status==='approved'||r.status==='sent').length;
+  document.getElementById('s-rejected').textContent = reviews.filter(r=>r.status==='rejected').length;
+}
+
+function toggleCard(id) {
+  const body = document.getElementById('rcb-'+id);
+  if(body) body.classList.toggle('open');
+}
+
+// ── COMPLIANCE OFFICER ACTIONS ────────────────────────────────────────────────
+function approveReview(idx) {
+  const reviews = getReviews();
+  reviews[idx].status = 'approved';
+  reviews[idx].approvedAt = new Date().toISOString();
+  saveReviews(reviews);
+
+  // Open Gmail to notify advisor
+  const r = reviews[idx];
+  const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=ryancp207@gmail.com&su=${encodeURIComponent(`[APPROVED] ${r.subject}`)}&body=${encodeURIComponent(`The following email has been APPROVED for sending.\n\nProspect: ${r.prospectName}\nSubject: ${r.subject}\n\n---\n${r.body}\n\n---\nApproved by Compliance Officer\n${new Date().toLocaleString()}`)}&from=jadiengunnip@gmail.com`;
+  window.open(gmailUrl, '_blank');
+  render();
+}
+
+function showRejectForm(idx) {
+  const form = document.getElementById('reject-form-'+idx);
+  if(form) form.style.display = form.style.display === 'none' ? 'block' : 'none';
+}
+
+function submitRejection(idx) {
+  const reason = document.getElementById('reject-reason-'+idx)?.value?.trim();
+  if (!reason) return alert('Please provide a reason for rejection.');
+  const reviews = getReviews();
+  reviews[idx].status = 'rejected';
+  reviews[idx].rejectionReason = reason;
+  reviews[idx].rejectedAt = new Date().toISOString();
+  saveReviews(reviews);
+
+  // Open Gmail to notify advisor of rejection
+  const r = reviews[idx];
+  const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=ryancp207@gmail.com&su=${encodeURIComponent(`[REJECTED] ${r.subject}`)}&body=${encodeURIComponent(`The following email has been REJECTED.\n\nProspect: ${r.prospectName}\nSubject: ${r.subject}\n\nREASON FOR REJECTION:\n${reason}\n\nPlease revise and resubmit for review.\n\n---\nCompliance Officer\n${new Date().toLocaleString()}`)}&from=jadiengunnip@gmail.com`;
+  window.open(gmailUrl, '_blank');
+  render();
+}
+
+// ── FINANCIAL ADVISOR ACTIONS ─────────────────────────────────────────────────
+function saveRevision(idx) {
+  const reviews = getReviews();
+  const newSubj = document.getElementById('rev-subj-'+idx)?.value;
+  const newBody = document.getElementById('rev-body-'+idx)?.value;
+  if (newSubj) reviews[idx].subject = newSubj;
+  if (newBody) reviews[idx].body = newBody;
+  reviews[idx].status = 'revised';
+  reviews[idx].revisedAt = new Date().toISOString();
+  saveReviews(reviews);
+
+  // Re-open Gmail to send revised version to compliance
+  const r = reviews[idx];
+  const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=jadiengunnip@gmail.com&su=${encodeURIComponent(`[REVISED] ${r.subject}`)}&body=${encodeURIComponent(`REVISED COMPLIANCE REVIEW REQUEST\n\nProspect: ${r.prospectName}\nPrevious rejection reason: ${r.rejectionReason||'N/A'}\n\nREVISED EMAIL:\nSubject: ${r.subject}\n\n${r.body}\n\nPlease review and approve/reject.`)}&from=ryancp207@gmail.com`;
+  window.open(gmailUrl, '_blank');
+  render();
+}
+
+function sendDirectEmail(idx) {
+  const reviews = getReviews();
+  const r = reviews[idx];
+  const toEmail = document.getElementById('direct-to-'+idx)?.value || '';
+  if (!toEmail) return alert('Enter prospect email address.');
+
+  // Open Gmail to send directly to prospect
+  const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(toEmail)}&su=${encodeURIComponent(r.subject)}&body=${encodeURIComponent(r.body)}&from=ryancp207@gmail.com`;
+  window.open(gmailUrl, '_blank');
+
+  reviews[idx].status = 'sent';
+  reviews[idx].sentToProspect = toEmail;
+  reviews[idx].sentToProspectAt = new Date().toISOString();
+  saveReviews(reviews);
+  render();
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────────────
+function render() {
+  const reviews = getReviews();
+  updateStats(reviews);
+  const wrap = document.getElementById('reviews-wrap');
+
+  if (!reviews.length) {
+    wrap.innerHTML = `<div class="empty-state">
+      <div style="font-size:32px;margin-bottom:12px;opacity:.3">⚖</div>
+      <h3>No reviews yet</h3>
+      <p>Send emails for compliance review from the research pipeline and they'll appear here.</p>
+    </div>`;
+    return;
+  }
+
+  // Filter by view
+  const filtered = currentView === 'co'
+    ? reviews // CO sees everything
+    : reviews; // FA sees everything too but with different actions
+
+  wrap.innerHTML = filtered.map((r, idx) => {
+    const statusClass = {pending:'sp-pending',approved:'sp-approved',rejected:'sp-rejected',revised:'sp-revised',sent:'sp-sent'}[r.status]||'sp-pending';
+    const statusLabel = {pending:'Pending review',approved:'Approved',rejected:'Rejected',revised:'Revised — awaiting review',sent:'Sent to prospect'}[r.status]||r.status;
+    const color = COLORS[idx % COLORS.length];
+    const compItems = r.complianceItems || [];
+
+    // CO view actions
+    const coActions = currentView === 'co' ? `
+      <div class="action-section">
+        ${r.status === 'pending' || r.status === 'revised' ? `
+          <div class="action-row">
+            <button class="action-btn btn-approve" onclick="approveReview(${idx})">✓ Approve & notify advisor</button>
+            <button class="action-btn btn-reject" onclick="showRejectForm(${idx})">✕ Reject</button>
+          </div>
+          <div id="reject-form-${idx}" class="reject-form" style="display:none">
+            <textarea class="reject-textarea" id="reject-reason-${idx}" placeholder="Explain why this email needs revision (specific rule citations encouraged)..."></textarea>
+            <button class="reject-submit" onclick="submitRejection(${idx})">Send rejection to advisor</button>
+          </div>
+        ` : r.status === 'approved' ? `
+          <div class="approved-note">✓ Approved ${r.approvedAt ? '— ' + timeAgo(r.approvedAt) : ''}</div>
+        ` : r.status === 'sent' ? `
+          <div class="approved-note">✓ Sent to prospect ${r.sentToProspect || ''} ${r.sentToProspectAt ? '— ' + timeAgo(r.sentToProspectAt) : ''}</div>
+        ` : `
+          <div class="rejection-note"><strong>Rejected</strong>${r.rejectionReason || ''}</div>
+        `}
+      </div>` : '';
+
+    // FA view actions
+    const faActions = currentView === 'fa' ? `
+      <div class="action-section">
+        ${r.status === 'rejected' ? `
+          <div class="rejection-note"><strong>Rejected by compliance officer:</strong>${esc(r.rejectionReason || '')}</div>
+          <div class="revision-section">
+            <label>Revise subject</label>
+            <input type="text" id="rev-subj-${idx}" value="${esc(r.subject)}">
+            <div style="margin-top:10px"></div>
+            <label>Revise email body</label>
+            <textarea id="rev-body-${idx}">${esc(r.body)}</textarea>
+          </div>
+          <div class="action-row">
+            <button class="action-btn btn-resend" onclick="saveRevision(${idx})">↻ Save & resubmit to compliance</button>
+          </div>
+        ` : r.status === 'approved' ? `
+          <div class="approved-note">✓ Approved by compliance officer${r.approvedAt ? ' — ' + timeAgo(r.approvedAt) : ''}</div>
+          <div class="send-direct-form">
+            <label>Send directly to prospect</label>
+            <input type="email" id="direct-to-${idx}" placeholder="prospect@email.com" value="">
+          </div>
+          <div class="action-row" style="margin-top:10px">
+            <button class="action-btn btn-send" onclick="sendDirectEmail(${idx})">✉ Send email to prospect via Gmail</button>
+          </div>
+        ` : r.status === 'sent' ? `
+          <div class="approved-note">✓ Sent to ${r.sentToProspect || 'prospect'} ${r.sentToProspectAt ? '— ' + timeAgo(r.sentToProspectAt) : ''}</div>
+        ` : r.status === 'revised' ? `
+          <div style="padding:10px 14px;background:var(--blue-bg);border:1px solid var(--blue-border);border-radius:7px;font-size:12px;color:var(--blue);">
+            Revised version sent to compliance — awaiting review.
+          </div>
+        ` : `
+          <div style="padding:10px 14px;background:var(--yellow-bg);border:1px solid var(--yellow-border);border-radius:7px;font-size:12px;color:var(--yellow);">
+            Awaiting compliance officer review.
+          </div>
+        `}
+      </div>` : '';
+
+    return `<div class="review-card">
+      <div class="rc-header" onclick="toggleCard(${idx})">
+        <div class="rc-left">
+          <div class="rc-avatar" style="background:${color}22;color:${color}">${initials(r.prospectName||'?')}</div>
+          <div>
+            <div class="rc-name">${esc(r.prospectName||'Unknown')}</div>
+            <div class="rc-role">${esc(r.prospectRole||'')} <span class="timestamp">· Submitted ${timeAgo(r.sentAt)}</span></div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          ${r.complianceScore ? `<span style="font-family:'DM Mono',monospace;font-size:11px;color:${r.complianceScore>=90?'var(--green)':r.complianceScore>=70?'var(--yellow)':'var(--red)'}">${r.complianceScore}/100</span>` : ''}
+          <span class="status-pill ${statusClass}">${statusLabel}</span>
+          <span style="color:var(--muted);font-size:12px">▾</span>
+        </div>
+      </div>
+      <div class="rc-body" id="rcb-${idx}">
+        ${r.stateRegs ? `<div class="state-regs-mini">📍 State regs: ${esc(r.stateRegs)}</div>` : ''}
+        <div class="email-preview">
+          <div class="ep-subject">${esc(r.subject||'')}</div>
+          <div class="ep-meta">To: ${esc(r.prospectName)} · From: ryancp207@gmail.com</div>
+          <div class="ep-body">${esc(r.body||'')}</div>
+        </div>
+        ${coActions}
+        ${faActions}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function clearAll() {
+  if (confirm('Clear all reviews? This cannot be undone.')) {
+    localStorage.removeItem('cp_pending_reviews');
+    render();
+  }
+}
+
+// Auto-refresh every 10 seconds
+setInterval(render, 10000);
+
+// Boot
+render();
+</script>
+</body>
+</html>
