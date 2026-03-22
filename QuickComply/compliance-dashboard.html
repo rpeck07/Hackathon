@@ -116,10 +116,10 @@ button,input,select,textarea{font-family:'Geist',system-ui,sans-serif;}
 <body>
 
 <nav class="topnav">
-  <div class="logo">QuickComply <em>— compliance dashboard</em></div>
+  <div class="logo">QuickComply <em>— compliance review</em></div>
   <div style="display:flex;gap:8px;align-items:center;">
-    <div id="role-display" class="role-badge role-co">Compliance Officer View</div>
-    <button onclick="toggleRole()" style="padding:6px 12px;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;color:var(--muted);font-size:11px;cursor:pointer;">Switch view</button>
+    <div class="role-badge role-co">Compliance Officer</div>
+    <a href="advisor-inbox.html" style="padding:6px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;color:var(--text3);font-size:11px;cursor:pointer;text-decoration:none;transition:all .15s;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text3)'">Advisor inbox →</a>
     <button onclick="clearAll()" style="padding:6px 12px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:11px;cursor:pointer;">Clear all</button>
   </div>
 </nav>
@@ -132,10 +132,7 @@ button,input,select,textarea{font-family:'Geist',system-ui,sans-serif;}
     <div class="stat-card"><div class="stat-num" id="s-rejected" style="color:var(--red)">0</div><div class="stat-label">Rejected</div></div>
   </div>
 
-  <div class="view-toggle">
-    <button class="vtab active" id="tab-co" onclick="setView('co',this)">Compliance Officer</button>
-    <button class="vtab" id="tab-fa" onclick="setView('fa',this)">Financial Advisor</button>
-  </div>
+
 
   <div id="reviews-wrap"></div>
 </div>
@@ -153,27 +150,9 @@ function timeAgo(iso){
   return Math.floor(d/86400000)+'d ago';
 }
 
-let currentView = 'co'; // 'co' = compliance officer, 'fa' = financial advisor
+const currentView = 'co';
 
-function toggleRole() {
-  currentView = currentView === 'co' ? 'fa' : 'co';
-  const display = document.getElementById('role-display');
-  display.textContent = currentView === 'co' ? 'Compliance Officer View' : 'Financial Advisor View';
-  display.className = 'role-badge ' + (currentView === 'co' ? 'role-co' : 'role-fa');
-  document.getElementById('tab-co').classList.toggle('active', currentView === 'co');
-  document.getElementById('tab-fa').classList.toggle('active', currentView === 'fa');
-  render();
-}
 
-function setView(v, btn) {
-  currentView = v;
-  document.querySelectorAll('.vtab').forEach(t=>t.classList.remove('active'));
-  btn.classList.add('active');
-  const display = document.getElementById('role-display');
-  display.textContent = v === 'co' ? 'Compliance Officer View' : 'Financial Advisor View';
-  display.className = 'role-badge ' + (v === 'co' ? 'role-co' : 'role-fa');
-  render();
-}
 
 function getReviews() {
   try { return JSON.parse(localStorage.getItem('cp_pending_reviews') || '[]'); }
@@ -313,42 +292,7 @@ function render() {
         `}
       </div>` : '';
 
-    // FA view actions
-    const faActions = currentView === 'fa' ? `
-      <div class="action-section">
-        ${r.status === 'rejected' ? `
-          <div class="rejection-note"><strong>Rejected by compliance officer:</strong>${esc(r.rejectionReason || '')}</div>
-          <div class="revision-section">
-            <label>Revise subject</label>
-            <input type="text" id="rev-subj-${idx}" value="${esc(r.subject)}">
-            <div style="margin-top:10px"></div>
-            <label>Revise email body</label>
-            <textarea id="rev-body-${idx}">${esc(r.body)}</textarea>
-          </div>
-          <div class="action-row">
-            <button class="action-btn btn-resend" onclick="saveRevision(${idx})">↻ Save & resubmit to compliance</button>
-          </div>
-        ` : r.status === 'approved' ? `
-          <div class="approved-note">✓ Approved by compliance officer${r.approvedAt ? ' — ' + timeAgo(r.approvedAt) : ''}</div>
-          <div class="send-direct-form">
-            <label>Send directly to prospect</label>
-            <input type="email" id="direct-to-${idx}" placeholder="prospect@email.com" value="">
-          </div>
-          <div class="action-row" style="margin-top:10px">
-            <button class="action-btn btn-send" onclick="sendDirectEmail(${idx})">✉ Send email to prospect via Gmail</button>
-          </div>
-        ` : r.status === 'sent' ? `
-          <div class="approved-note">✓ Sent to ${r.sentToProspect || 'prospect'} ${r.sentToProspectAt ? '— ' + timeAgo(r.sentToProspectAt) : ''}</div>
-        ` : r.status === 'revised' ? `
-          <div style="padding:10px 14px;background:var(--blue-bg);border:1px solid var(--blue-border);border-radius:7px;font-size:12px;color:var(--blue);">
-            Revised version sent to compliance — awaiting review.
-          </div>
-        ` : `
-          <div style="padding:10px 14px;background:var(--yellow-bg);border:1px solid var(--yellow-border);border-radius:7px;font-size:12px;color:var(--yellow);">
-            Awaiting compliance officer review.
-          </div>
-        `}
-      </div>` : '';
+    const faActions = '';
 
     return `<div class="review-card">
       <div class="rc-header" onclick="toggleCard(${idx})">
