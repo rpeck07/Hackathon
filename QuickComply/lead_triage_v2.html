@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Compliant Prospector — Triage</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0d0f12;
+  --surface: #141720;
+  --surface2: #1c2030;
+  --surface3: #222840;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.13);
+  --text: #e8eaf0;
+  --muted: #6b7280;
+  --accent: #c8b97a;
+  --accent-dim: rgba(200,185,122,0.12);
+  --green: #22c55e; --green-bg: rgba(34,197,94,0.09); --green-border: rgba(34,197,94,0.22);
+  --yellow: #f59e0b; --yellow-bg: rgba(245,158,11,0.09); --yellow-border: rgba(245,158,11,0.22);
+  --red: #ef4444; --red-bg: rgba(239,68,68,0.07); --red-border: rgba(239,68,68,0.18);
+  --blue: #60a5fa; --blue-bg: rgba(96,165,250,0.09); --blue-border: rgba(96,165,250,0.22);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Instrument Sans',sans-serif;min-height:100vh;font-size:14px;line-height:1.5;}
+button,input,select,textarea{font-family:'Instrument Sans',sans-serif;}
+
+/* ── LAYOUT ── */
+.app{display:flex;height:100vh;overflow:hidden;}
+.sidebar{width:320px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--surface);}
+.main-panel{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+
+/* ── HEADER ── */
+.header{display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid var(--border);background:var(--bg);}
+.logo{font-family:'DM Serif Display',serif;font-size:18px;color:var(--accent);}
+.logo em{color:var(--muted);font-style:italic;font-size:13px;font-family:'Instrument Sans',sans-serif;margin-left:6px;}
+.header-actions{display:flex;gap:8px;align-items:center;}
+.upload-btn{display:flex;align-items:center;gap:6px;padding:7px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:7px;color:var(--muted);font-size:12px;cursor:pointer;transition:all .15s;}
+.upload-btn:hover{border-color:var(--accent);color:var(--accent);}
+#crm-upload{display:none;}
+.crm-badge{display:flex;align-items:center;gap:5px;padding:5px 10px;background:var(--green-bg);border:1px solid var(--green-border);border-radius:5px;color:var(--green);font-size:11px;font-family:'DM Mono',monospace;}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ── STATS ── */
+.stats-row{display:flex;border-bottom:1px solid var(--border);background:var(--surface);}
+.stat{flex:1;padding:12px 16px;border-right:1px solid var(--border);cursor:pointer;transition:background .15s;}
+.stat:last-child{border-right:none;}
+.stat:hover,.stat.active{background:rgba(255,255,255,0.03);}
+.stat-num{font-family:'DM Serif Display',serif;font-size:20px;line-height:1;}
+.stat-label{color:var(--muted);font-size:11px;margin-top:2px;}
+.s-all .stat-num{color:var(--text);}
+.s-green .stat-num{color:var(--green);}
+.s-yellow .stat-num{color:var(--yellow);}
+.s-red .stat-num{color:var(--red);}
+
+/* ── FILTER BAR ── */
+.filter-bar{display:flex;align-items:center;justify-content:space-between;padding:10px 20px;border-bottom:1px solid var(--border);}
+.filter-tabs{display:flex;gap:4px;}
+.ftab{padding:5px 12px;border-radius:5px;border:1px solid transparent;font-size:11px;font-family:'DM Mono',monospace;cursor:pointer;background:none;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;transition:all .15s;}
+.ftab:hover{color:var(--text);border-color:var(--border2);}
+.ftab.fa{background:var(--surface2);color:var(--text);border-color:var(--border2);}
+.ftab.fg{background:var(--green-bg);color:var(--green);border-color:var(--green-border);}
+.ftab.fy{background:var(--yellow-bg);color:var(--yellow);border-color:var(--yellow-border);}
+.ftab.fr{background:var(--red-bg);color:var(--red);border-color:var(--red-border);}
+.sort-sel{background:var(--surface2);border:1px solid var(--border);color:var(--muted);padding:5px 10px;border-radius:6px;font-size:12px;cursor:pointer;}
+
+/* ── GRID ── */
+.grid-wrap{flex:1;overflow-y:auto;padding:20px;}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;}
+
+/* ── CARD ── */
+.card{background:var(--surface);border-radius:10px;border:1px solid var(--border);overflow:hidden;transition:border-color .2s,transform .15s;position:relative;}
+.card:hover{border-color:var(--border2);transform:translateY(-1px);}
+.card.selected{border-color:var(--accent);box-shadow:0 0 0 1px rgba(200,185,122,.18);}
+.card-bar{height:3px;}
+.cat-contact .card-bar{background:var(--green);}
+.cat-potential .card-bar{background:var(--yellow);}
+.cat-dnc .card-bar{background:var(--red);}
+.card-body{padding:16px 18px;}
+.card-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;gap:8px;}
+.card-name{font-size:14px;font-weight:600;color:var(--text);margin-bottom:2px;}
+.card-role{font-size:11px;color:var(--muted);}
+.cpill{display:flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:10px;font-family:'DM Mono',monospace;white-space:nowrap;flex-shrink:0;}
+.cp-g{background:var(--green-bg);color:var(--green);border:1px solid var(--green-border);}
+.cp-y{background:var(--yellow-bg);color:var(--yellow);border:1px solid var(--yellow-border);}
+.cp-r{background:var(--red-bg);color:var(--red);border:1px solid var(--red-border);}
+.scores{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;}
+.schip{display:flex;align-items:center;gap:4px;padding:3px 8px;background:var(--surface2);border-radius:5px;font-size:10px;font-family:'DM Mono',monospace;color:var(--muted);}
+.schip b{color:var(--text);font-weight:500;}
+.reason-box{padding:8px 10px;border-radius:7px;font-size:11px;line-height:1.55;margin-bottom:10px;}
+.cat-contact .reason-box{background:var(--green-bg);border:1px solid var(--green-border);color:#86efac;}
+.cat-potential .reason-box{background:var(--yellow-bg);border:1px solid var(--yellow-border);color:#fcd34d;}
+.cat-dnc .reason-box{background:var(--red-bg);border:1px solid var(--red-border);color:#fca5a5;}
+.rlabel{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.08em;text-transform:uppercase;opacity:.65;margin-bottom:3px;}
+.tags{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px;}
+.tag{padding:2px 7px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;font-size:10px;color:var(--muted);}
+.card-actions{display:flex;gap:6px;padding:10px 16px;border-top:1px solid var(--border);background:rgba(0,0,0,.12);}
+.cbtn{flex:1;padding:7px 6px;border-radius:6px;border:1px solid var(--border2);font-size:11px;font-weight:500;cursor:pointer;transition:all .15s;background:none;color:var(--muted);}
+.cbtn:hover{color:var(--text);border-color:var(--border2);}
+.cbtn-gold{color:var(--accent);border-color:rgba(200,185,122,.3);background:rgba(200,185,122,.05);}
+.cbtn-gold:hover{background:rgba(200,185,122,.12);}
+.cbtn-edit{color:#60a5fa;border-color:rgba(96,165,250,.25);background:rgba(96,165,250,.05);}
+.cbtn-edit:hover{background:rgba(96,165,250,.12);}
+
+/* ── CHECKBOX ── */
+.card-check{position:absolute;top:14px;right:14px;width:16px;height:16px;border-radius:4px;border:1.5px solid var(--border2);background:var(--surface);display:flex;align-items:center;justify-content:center;transition:all .15s;z-index:2;cursor:pointer;}
+.card.selected .card-check{background:var(--accent);border-color:var(--accent);}
+.chk-icon{display:none;color:#0d0f12;font-size:10px;font-weight:700;}
+.card.selected .chk-icon{display:block;}
+
+/* ── BATCH BAR ── */
+.batch-bar{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:10px 18px;display:flex;align-items:center;gap:14px;font-size:13px;transition:transform .25s cubic-bezier(.34,1.56,.64,1);z-index:200;box-shadow:0 8px 32px rgba(0,0,0,.4);}
+.batch-bar.vis{transform:translateX(-50%) translateY(0);}
+.batch-count{font-family:'DM Mono',monospace;color:var(--accent);font-size:13px;}
+.btn-batch{padding:7px 16px;background:var(--accent);color:#0d0f12;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;transition:opacity .15s;}
+.btn-batch:hover{opacity:.88;}
+.btn-clr{background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;}
+.btn-clr:hover{color:var(--text);}
+
+/* ── SIDEBAR: CHATBOT ── */
+.sidebar-header{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.sidebar-title{font-size:13px;font-weight:600;color:var(--text);}
+.sidebar-sub{font-size:11px;color:var(--muted);}
+.chat-messages{flex:1;overflow-y:auto;padding:14px 14px 8px;display:flex;flex-direction:column;gap:10px;}
+.msg{max-width:90%;font-size:12px;line-height:1.55;}
+.msg-ai{align-self:flex-start;}
+.msg-user{align-self:flex-end;}
+.msg-bubble{padding:8px 12px;border-radius:10px;line-height:1.55;}
+.msg-ai .msg-bubble{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:3px 10px 10px 10px;}
+.msg-user .msg-bubble{background:var(--accent-dim);border:1px solid rgba(200,185,122,.25);color:var(--text);border-radius:10px 3px 10px 10px;}
+.msg-label{font-size:9px;font-family:'DM Mono',monospace;letter-spacing:.06em;color:var(--muted);margin-bottom:3px;text-transform:uppercase;}
+.msg-ai .msg-label{margin-left:2px;}
+.msg-user .msg-label{text-align:right;margin-right:2px;}
+.typing{display:flex;align-items:center;gap:4px;padding:10px 12px;background:var(--surface2);border-radius:3px 10px 10px 10px;border:1px solid var(--border);}
+.typing span{width:5px;height:5px;border-radius:50%;background:var(--muted);animation:blink 1.2s infinite;}
+.typing span:nth-child(2){animation-delay:.2s;}
+.typing span:nth-child(3){animation-delay:.4s;}
+@keyframes blink{0%,80%,100%{opacity:.2}40%{opacity:1}}
+.chat-input-area{padding:10px 12px;border-top:1px solid var(--border);}
+.chat-input-row{display:flex;gap:6px;}
+.chat-input{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:8px 10px;color:var(--text);font-size:12px;resize:none;outline:none;transition:border-color .15s;min-height:36px;max-height:80px;}
+.chat-input:focus{border-color:rgba(200,185,122,.4);}
+.chat-send{padding:8px 12px;background:var(--accent);border:none;border-radius:7px;color:#0d0f12;cursor:pointer;font-size:12px;font-weight:600;transition:opacity .15s;flex-shrink:0;}
+.chat-send:hover{opacity:.85;}
+.chat-send:disabled{opacity:.4;cursor:default;}
+.chat-prompts{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;}
+.cprompt{padding:4px 9px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;font-size:10px;color:var(--muted);cursor:pointer;transition:all .15s;}
+.cprompt:hover{border-color:var(--accent);color:var(--accent);}
+
+/* ── OVERLAY MODALS ── */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(5px);z-index:400;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s;}
+.overlay.open{opacity:1;pointer-events:all;}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:14px;width:90%;max-width:600px;max-height:86vh;overflow-y:auto;transform:scale(.96);transition:transform .2s;position:relative;}
+.overlay.open .modal{transform:scale(1);}
+.modal-hdr{padding:22px 26px 16px;border-bottom:1px solid var(--border);}
+.modal-hdr h2{font-family:'DM Serif Display',serif;font-size:18px;margin-bottom:3px;}
+.modal-hdr p{color:var(--muted);font-size:12px;}
+.modal-body{padding:20px 26px;}
+.modal-ftr{padding:14px 26px;border-top:1px solid var(--border);display:flex;gap:8px;}
+.mclose{position:absolute;top:16px;right:18px;background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:3px;}
+.mclose:hover{color:var(--text);}
+
+/* ── EDIT FORM ── */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.form-group{display:flex;flex-direction:column;gap:5px;}
+.form-group.full{grid-column:1/-1;}
+label{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;letter-spacing:.05em;text-transform:uppercase;}
+input[type=text],input[type=number],textarea,select.form-sel{background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:8px 10px;color:var(--text);font-size:12px;outline:none;transition:border-color .15s;width:100%;}
+input[type=text]:focus,input[type=number]:focus,textarea:focus,select.form-sel:focus{border-color:rgba(200,185,122,.4);}
+textarea{resize:vertical;min-height:60px;}
+.score-row{display:flex;gap:12px;align-items:center;}
+.score-input{display:flex;flex-direction:column;gap:4px;flex:1;}
+.score-display{font-family:'DM Mono',monospace;font-size:18px;color:var(--accent);}
+input[type=range]{width:100%;accent-color:var(--accent);}
+.tag-input-wrap{display:flex;flex-direction:column;gap:6px;}
+.tag-list{display:flex;flex-wrap:wrap;gap:5px;}
+.tag-edit{display:flex;align-items:center;gap:4px;padding:3px 8px 3px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;font-size:11px;color:var(--muted);}
+.tag-rm{background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:0 2px;line-height:1;}
+.tag-rm:hover{color:var(--red);}
+.tag-add-row{display:flex;gap:6px;}
+.tag-add-row input{flex:1;}
+.tag-add-btn{padding:7px 12px;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;color:var(--muted);cursor:pointer;font-size:11px;transition:all .15s;}
+.tag-add-btn:hover{color:var(--accent);border-color:rgba(200,185,122,.3);}
+.mcat-select{display:flex;gap:8px;}
+.mcat-opt{flex:1;padding:8px;border-radius:7px;border:1px solid var(--border);background:none;color:var(--muted);font-size:11px;cursor:pointer;text-align:center;transition:all .15s;font-family:'DM Mono',monospace;}
+.mcat-opt:hover{border-color:var(--border2);}
+.mcat-opt.sel-g{background:var(--green-bg);color:var(--green);border-color:var(--green-border);}
+.mcat-opt.sel-y{background:var(--yellow-bg);color:var(--yellow);border-color:var(--yellow-border);}
+.mcat-opt.sel-r{background:var(--red-bg);color:var(--red);border-color:var(--red-border);}
+
+/* ── EMAIL MODAL ── */
+.email-status{display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:8px;font-size:12px;margin-bottom:14px;}
+.email-status.loading{background:var(--blue-bg);border:1px solid var(--blue-border);color:var(--blue);}
+.email-status.done{background:var(--green-bg);border:1px solid var(--green-border);color:var(--green);}
+.email-status.err{background:var(--red-bg);border:1px solid var(--red-border);color:var(--red);}
+.spin{width:14px;height:14px;border:2px solid rgba(96,165,250,.3);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.email-field{margin-bottom:14px;}
+.email-field label{display:block;font-size:10px;font-family:'DM Mono',monospace;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:5px;}
+.email-field input,.email-field textarea{background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:8px 10px;color:var(--text);font-size:12px;width:100%;outline:none;transition:border-color .15s;}
+.email-field textarea{min-height:180px;resize:vertical;line-height:1.6;}
+.email-field input:focus,.email-field textarea:focus{border-color:rgba(200,185,122,.4);}
+.compliance-box{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px;}
+.compliance-box h4{font-size:11px;font-family:'DM Mono',monospace;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
+.compliance-item{display:flex;gap:8px;align-items:flex-start;margin-bottom:8px;font-size:12px;}
+.compliance-item:last-child{margin-bottom:0;}
+.ci-icon{font-size:13px;flex-shrink:0;margin-top:1px;}
+.ci-text{color:var(--text);line-height:1.5;}
+.ci-ref{font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);margin-top:2px;}
+.mbtn{padding:9px 18px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;border:1px solid var(--border2);}
+.mbtn-primary{background:var(--accent);color:#0d0f12;border-color:var(--accent);}
+.mbtn-primary:hover{opacity:.88;}
+.mbtn-secondary{background:none;color:var(--muted);}
+.mbtn-secondary:hover{color:var(--text);border-color:var(--border2);}
+.mbtn:disabled{opacity:.4;cursor:default;}
+
+/* ── DETAIL MODAL ── */
+.detail-section{margin-bottom:18px;}
+.detail-section h4{font-size:10px;font-family:'DM Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+.detail-section p{font-size:13px;line-height:1.6;}
+.detail-list{list-style:none;}
+.detail-list li{font-size:12px;padding:6px 0;border-bottom:1px solid var(--border);display:flex;gap:8px;line-height:1.5;}
+.detail-list li::before{content:'—';color:var(--accent);flex-shrink:0;}
+.detail-list li:last-child{border-bottom:none;}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--surface3);border-radius:3px;}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- SIDEBAR: AI CHATBOT -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div>
+        <div class="sidebar-title">Filter Assistant</div>
+        <div class="sidebar-sub">Ask me to re-sort or re-categorize</div>
+      </div>
+    </div>
+    <div class="chat-messages" id="chat-msgs">
+      <div class="msg msg-ai">
+        <div class="msg-label">Assistant</div>
+        <div class="msg-bubble">I can help you filter, re-rank, or recategorize your prospect list. Try asking me something like the prompts below, or describe your own criteria.</div>
+      </div>
+    </div>
+    <div class="chat-input-area">
+      <div class="chat-prompts">
+        <span class="cprompt" onclick="quickPrompt('Show only founders with a recent liquidity event')">Founders w/ liquidity event</span>
+        <span class="cprompt" onclick="quickPrompt('Move anyone with no life event trigger to Do Not Contact')">No trigger → DNC</span>
+        <span class="cprompt" onclick="quickPrompt('Re-rank by urgency score descending')">Sort by urgency</span>
+        <span class="cprompt" onclick="quickPrompt('Flag anyone whose concerns mention existing advisor as Potentially Contact')">Existing advisor → Potential</span>
+        <span class="cprompt" onclick="quickPrompt('Who should I email first today?')">Who first today?</span>
+      </div>
+      <div class="chat-input-row">
+        <textarea class="chat-input" id="chat-input" placeholder="Ask about your prospects..." rows="1"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}"></textarea>
+        <button class="chat-send" id="chat-send-btn" onclick="sendChat()">↑</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN PANEL -->
+  <div class="main-panel">
+    <div class="header">
+      <div class="logo">Compliant Prospector <em>— triage</em></div>
+      <div class="header-actions">
+        <label class="upload-btn" for="crm-upload">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Upload CRM
+        </label>
+        <input type="file" id="crm-upload" accept=".json,.csv" onchange="handleUpload(event)">
+        <div class="crm-badge" id="crm-badge"><div class="dot"></div><span id="crm-name">scored.json</span></div>
+      </div>
+    </div>
+
+    <div class="stats-row" id="stats-row">
+      <div class="stat s-all active" onclick="filterBy('all',this)"><div class="stat-num" id="cnt-all">0</div><div class="stat-label">Total</div></div>
+      <div class="stat s-green" onclick="filterBy('contact',this)"><div class="stat-num" id="cnt-c">0</div><div class="stat-label">Contact</div></div>
+      <div class="stat s-yellow" onclick="filterBy('potential',this)"><div class="stat-num" id="cnt-p">0</div><div class="stat-label">Potentially contact</div></div>
+      <div class="stat s-red" onclick="filterBy('dnc',this)"><div class="stat-num" id="cnt-d">0</div><div class="stat-label">Do not contact</div></div>
+    </div>
+
+    <div class="filter-bar">
+      <div class="filter-tabs" id="ftabs">
+        <button class="ftab fa" onclick="filterBy('all',null,this)">All</button>
+        <button class="ftab" onclick="filterBy('contact',null,this)">Contact</button>
+        <button class="ftab" onclick="filterBy('potential',null,this)">Potentially</button>
+        <button class="ftab" onclick="filterBy('dnc',null,this)">Do not contact</button>
+      </div>
+      <select class="sort-sel" onchange="sortProspects(this.value)">
+        <option value="urgency">Sort: Urgency</option>
+        <option value="icp">Sort: ICP Score</option>
+        <option value="combined">Sort: Combined</option>
+        <option value="name">Sort: Name A–Z</option>
+      </select>
+    </div>
+
+    <div class="grid-wrap">
+      <div class="grid" id="grid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- BATCH BAR -->
+<div class="batch-bar" id="batch-bar">
+  <span class="batch-count" id="batch-cnt">0 selected</span>
+  <span style="color:var(--muted)">→</span>
+  <button class="btn-batch" onclick="batchDraft()">Draft emails for selected</button>
+  <button class="btn-clr" onclick="clearSel()">Clear</button>
+</div>
+
+<!-- DETAIL MODAL -->
+<div class="overlay" id="detail-overlay" onclick="closeOverlay('detail-overlay',event)">
+  <div class="modal">
+    <button class="mclose" onclick="closeOverlay('detail-overlay')">✕</button>
+    <div class="modal-hdr"><h2 id="dm-name"></h2><p id="dm-sub"></p></div>
+    <div class="modal-body" id="dm-body"></div>
+    <div class="modal-ftr">
+      <button class="mbtn mbtn-secondary" onclick="closeOverlay('detail-overlay')">Close</button>
+      <button class="mbtn mbtn-primary" id="dm-edit-btn">Edit details</button>
+      <button class="mbtn mbtn-primary" id="dm-draft-btn">Draft email →</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="overlay" id="edit-overlay" onclick="closeOverlay('edit-overlay',event)">
+  <div class="modal">
+    <button class="mclose" onclick="closeOverlay('edit-overlay')">✕</button>
+    <div class="modal-hdr"><h2>Edit prospect</h2><p>Changes update categorization in real time.</p></div>
+    <div class="modal-body">
+      <div class="form-grid" id="edit-form">
+        <!-- filled by JS -->
+      </div>
+    </div>
+    <div class="modal-ftr">
+      <button class="mbtn mbtn-secondary" onclick="closeOverlay('edit-overlay')">Cancel</button>
+      <button class="mbtn mbtn-primary" onclick="saveEdit()">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- EMAIL MODAL -->
+<div class="overlay" id="email-overlay" onclick="closeOverlay('email-overlay',event)">
+  <div class="modal" style="max-width:680px">
+    <button class="mclose" onclick="closeOverlay('email-overlay')">✕</button>
+    <div class="modal-hdr"><h2 id="em-name">Draft email</h2><p id="em-sub"></p></div>
+    <div class="modal-body" id="em-body">
+      <!-- filled by JS -->
+    </div>
+    <div class="modal-ftr" id="em-ftr">
+      <button class="mbtn mbtn-secondary" onclick="closeOverlay('email-overlay')">Cancel</button>
+      <button class="mbtn mbtn-primary" id="em-send-btn" onclick="sendEmail()" disabled>Send for compliance review →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── DATA ──────────────────────────────────────────────────────────────────────
+const SAMPLE = [
+  {id:1,name:"Sarah Chen",role:"CFO, Meridian Capital Group",location:"Miami, FL",linkedin:"linkedin.com/in/sarahchen",icp_score:92,urgency_score:88,icp_category:"C-Suite Executive",summary:"Recently stepped down as CFO following Meridian's acquisition by a PE firm. Likely navigating a significant liquidity event and exploring next steps.",match_reasons:["PE acquisition liquidity event","Exiting executive with vested equity","Miami-based wealth concentration"],why_now:["Acquisition closed 6 weeks ago","90-day executive transition window","No current advisor relationship flagged"],potential_concerns:["May have existing Goldman relationship","Short window before PE firm assigns advisor"],outreach_angle:"Congratulate on the acquisition milestone, acknowledge transition complexity, offer a no-pressure intro call to discuss post-exit financial planning."},
+  {id:2,name:"Marcus Webb",role:"Founder & CEO, Novara Health",location:"Fort Lauderdale, FL",linkedin:"linkedin.com/in/marcuswebb",icp_score:85,urgency_score:95,icp_category:"Startup Founder",summary:"Novara Health announced a $40M Series B two weeks ago. Webb has public-facing equity and is entering a lock-up period.",match_reasons:["Series B raise signals near-term liquidity","Founder equity above $10M estimated","High-growth sector"],why_now:["Series B announced 14 days ago","Lock-up expiry planning window now open","No recorded advisor relationship"],potential_concerns:["May be focused entirely on scaling post-raise","VC board may influence advisor choice"],outreach_angle:"Reference the Series B achievement, position conversation around pre-IPO/exit equity planning and tax-advantaged strategies."},
+  {id:3,name:"Diana Flores",role:"Partner, Arroyo & Flores Law",location:"Miami, FL",linkedin:"linkedin.com/in/dianaflores",icp_score:78,urgency_score:62,icp_category:"Legal Professional",summary:"Senior partner at a prominent Miami law firm. Recently promoted and likely receiving increased partnership distributions.",match_reasons:["Partnership promotion signals income spike","High-earning professional segment","Local network alignment"],why_now:["Promotion announced last quarter","Year-end tax planning season approaching"],potential_concerns:["No immediate liquidity event","Long sales cycle with legal professionals","May already have internal referrals"],outreach_angle:"Focus on tax-efficient strategies for partnership distributions and year-end planning relevance."},
+  {id:4,name:"Raj Patel",role:"VP Engineering, DataStream Inc.",location:"Boca Raton, FL",linkedin:"linkedin.com/in/rajpatel",icp_score:55,urgency_score:48,icp_category:"Senior Employee",summary:"Long-tenured engineering VP with likely vested RSUs. No recent triggering event.",match_reasons:["Tech company RSU accumulation","Senior tenure suggests meaningful equity"],why_now:[],potential_concerns:["No life event trigger","Below ICP score threshold","RSU amounts may not meet AUM target"],outreach_angle:"RSU diversification conversation — low urgency, long-cycle opportunity."},
+  {id:5,name:"Elena Vasquez",role:"Managing Director, Coral Bay Realty",location:"Miami Beach, FL",linkedin:"linkedin.com/in/elenavasquez",icp_score:88,urgency_score:76,icp_category:"Real Estate",summary:"Led a portfolio of luxury properties with a major sale completing last month totaling ~$22M. First-time high-liquidity event.",match_reasons:["Major asset liquidation event","First-time high-liquidity profile","Local market operator — no existing FA"],why_now:["Property sale closed 30 days ago","Capital deployment decision pending","No advisor relationship on record"],potential_concerns:["May reinvest directly into real estate","May distrust financial advisors as a category"],outreach_angle:"Acknowledge her local market expertise and frame the conversation around diversifying beyond real estate."},
+  {id:6,name:"Tom Briscoe",role:"Retired, Former SVP at NationBank",location:"Naples, FL",linkedin:"",icp_score:41,urgency_score:20,icp_category:"Retired Executive",summary:"Retired 4 years ago. No recent life events. Assumed to have established advisor relationships given prior bank affiliation.",match_reasons:["Former senior banking executive"],why_now:[],potential_concerns:["4-year-old retirement — no urgency","Almost certain to have existing advisory relationship","Former bank executive likely has insider access"],outreach_angle:"Not recommended at this time."},
+  {id:7,name:"Priya Nair",role:"Co-Founder, Lumina AI",location:"Miami, FL",linkedin:"linkedin.com/in/priyanair",icp_score:90,urgency_score:91,icp_category:"Startup Founder",summary:"Lumina AI was acquired by a public company last month for $85M. Priya holds ~18% equity. Currently in a 6-month earnout window.",match_reasons:["Recent acquisition — confirmed liquidity","18% founder equity stake","Earnout structure creates planning complexity"],why_now:["Acquisition closed 30 days ago","Earnout window is active","Complex tax situation requires immediate planning"],potential_concerns:["Acquiring company may have preferred wealth management partners"],outreach_angle:"Lead with earnout tax complexity and the urgency of Q4 planning. This is a time-sensitive, high-value opportunity."},
+  {id:8,name:"Greg Olson",role:"Owner, Olson Marine Supply",location:"Fort Lauderdale, FL",linkedin:"",icp_score:62,urgency_score:55,icp_category:"Small Business Owner",summary:"Owner of a regional marine supply business. No recent event. Moderate AUM potential.",match_reasons:["Business owner segment","Florida marine industry concentration"],why_now:[],potential_concerns:["No triggering event","May be satisfied with current bank relationship","AUM ceiling likely moderate"],outreach_angle:"Business succession and exit planning framing — medium-term relationship."},
+  {id:9,name:"Natalie Russo",role:"Inheritance recipient",location:"Coral Gables, FL",linkedin:"",icp_score:96,urgency_score:97,icp_category:"Inheritance / Wealth Transfer",summary:"Received a $12M estate inheritance following her father's passing 45 days ago. No advisor confirmed.",match_reasons:["Confirmed $12M inheritance via probate","No established wealth management relationship","First-time HNW individual"],why_now:["Inheritance received 45 days ago","Probate closed — capital is liquid","Estate planning and tax filings due"],potential_concerns:["Emotionally sensitive timing — recent bereavement","Approach must be empathetic, not transactional"],outreach_angle:"Approach with extreme care and empathy. Lead with estate settlement support and long-term stewardship, not product."},
+  {id:10,name:"Kevin Park",role:"Director of Finance, BrightPath Education",location:"Miami, FL",linkedin:"linkedin.com/in/kevinpark",icp_score:50,urgency_score:35,icp_category:"Corporate Finance",summary:"Mid-level finance director at a nonprofit-adjacent education company. Below typical AUM threshold.",match_reasons:["Finance professional with budgeting awareness"],why_now:[],potential_concerns:["No wealth event","Below AUM threshold","Nonprofit compensation structure"],outreach_angle:"Not a current priority."},
+  {id:11,name:"Linda Tran",role:"Physician, South Florida Surgical Group",location:"Miami, FL",linkedin:"linkedin.com/in/lindatran",icp_score:82,urgency_score:70,icp_category:"Medical Professional",summary:"Established surgical practice partner. Recently became equity partner — increasing her income and exposing her to additional tax complexity.",match_reasons:["Equity partnership = income step-change","High-earning medical segment","Miami-based, within network"],why_now:["Equity partnership effective this year","Year-end tax planning opportunity"],potential_concerns:["May be working with a CPA who has advisor referrals"],outreach_angle:"Position around physician-specific financial planning — malpractice insurance structure, tax-advantaged retirement accounts."},
+  {id:12,name:"Frank Deluca",role:"Retired, SEC Enforcement Officer",location:"West Palm Beach, FL",linkedin:"",icp_score:38,urgency_score:15,icp_category:"Retired Government",summary:"Retired federal enforcement officer. Government pension, no known private wealth event. Former regulatory role creates compliance sensitivity.",match_reasons:["Retired senior government official"],why_now:[],potential_concerns:["Former SEC enforcement — extremely compliance-sensitive","Government pension covers base needs","Approaching any former regulator requires extreme caution"],outreach_angle:"Do not contact. Former SEC enforcement officers are a significant compliance and reputational risk for cold outreach."}
+];
+
+// ─── STATE ─────────────────────────────────────────────────────────────────────
+let prospects = [];
+let currentFilter = 'all';
+let selected = new Set();
+let editingId = null;
+let emailProspectId = null;
+let chatHistory = [];
+
+// ─── CATEGORIZE ────────────────────────────────────────────────────────────────
+function categorize(p) {
+  const combined = (p.icp_score * 0.45) + (p.urgency_score * 0.55);
+  const hasEvent = p.why_now && p.why_now.length > 0;
+  const highRisk = p.potential_concerns && p.potential_concerns.some(c =>
+    /sec|enforcement|regulatory|do not contact/i.test(c));
+  if (highRisk || (p.icp_score < 45 && p.urgency_score < 25)) return 'dnc';
+  if (combined >= 75 && hasEvent) return 'contact';
+  if (combined >= 55 || hasEvent) return 'potential';
+  return 'dnc';
+}
+
+function catReason(p, cat) {
+  if (cat === 'contact') return `Strong ICP (${p.icp_score}) + active trigger: ${p.why_now[0] || ''}`;
+  if (cat === 'potential') return p.why_now.length === 0
+    ? `Solid ICP fit (${p.icp_score}) but no immediate life event — monitor for triggers.`
+    : `Moderate urgency (${p.urgency_score}) with event signal — softer timing.`;
+  return p.potential_concerns[0] || 'Low combined score — no event, below AUM threshold.';
+}
+
+function init(data) {
+  prospects = data.map(p => ({...p, category: p.category || categorize(p)}));
+  prospects.forEach(p => { p.catReason = catReason(p, p.category); });
+  sortProspects('urgency');
+  updateCounts();
+  renderGrid();
+}
+
+// ─── RENDER ────────────────────────────────────────────────────────────────────
+function updateCounts() {
+  const c = {contact:0,potential:0,dnc:0};
+  prospects.forEach(p => c[p.category]++);
+  document.getElementById('cnt-all').textContent = prospects.length;
+  document.getElementById('cnt-c').textContent = c.contact;
+  document.getElementById('cnt-p').textContent = c.potential;
+  document.getElementById('cnt-d').textContent = c.dnc;
+}
+
+function renderGrid() {
+  const grid = document.getElementById('grid');
+  const filtered = currentFilter === 'all' ? prospects : prospects.filter(p => p.category === currentFilter);
+  if (!filtered.length) {
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--muted)">
+      <div style="font-size:32px;margin-bottom:12px;opacity:.3">◎</div>
+      <div style="font-size:15px;color:var(--text);margin-bottom:6px;font-family:'DM Serif Display',serif">No prospects here</div>
+      Upload a CRM file or ask the assistant to re-filter.
+    </div>`;
+    return;
+  }
+  grid.innerHTML = filtered.map(p => {
+    const cc = {contact:'cat-contact',potential:'cat-potential',dnc:'cat-dnc'}[p.category];
+    const pc = {contact:'cp-g',potential:'cp-y',dnc:'cp-r'}[p.category];
+    const pl = {contact:'● Contact',potential:'◐ Potentially',dnc:'○ Do not contact'}[p.category];
+    const combined = Math.round((p.icp_score*0.45)+(p.urgency_score*0.55));
+    const tags = (p.match_reasons||[]).slice(0,2);
+    const sel = selected.has(p.id);
+    return `<div class="card ${cc}${sel?' selected':''}" data-id="${p.id}">
+      <div class="card-bar"></div>
+      <div class="card-check" onclick="toggleSel(event,${p.id})"><span class="chk-icon">✓</span></div>
+      <div class="card-body" style="cursor:pointer" onclick="openDetail(${p.id})">
+        <div class="card-top">
+          <div><div class="card-name">${p.name}</div><div class="card-role">${p.role}</div></div>
+          <div class="cpill ${pc}">${pl}</div>
+        </div>
+        <div class="scores">
+          <div class="schip">ICP <b>${p.icp_score}</b></div>
+          <div class="schip">Urgency <b>${p.urgency_score}</b></div>
+          <div class="schip">Combined <b>${combined}</b></div>
+        </div>
+        <div class="reason-box"><div class="rlabel">Why here</div>${p.catReason}</div>
+        ${tags.length ? `<div class="tags">${tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>` : ''}
+      </div>
+      <div class="card-actions">
+        <button class="cbtn cbtn-edit" onclick="openEdit(${p.id})">✏ Edit</button>
+        ${p.category!=='dnc'
+          ? `<button class="cbtn cbtn-gold" onclick="openEmail(${p.id})">Draft email →</button>`
+          : `<button class="cbtn" disabled style="opacity:.35;cursor:default">Skip</button>`}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleSel(e, id) {
+  e.stopPropagation();
+  const p = prospects.find(x => x.id === id);
+  if (p && p.category === 'dnc') return;
+  selected.has(id) ? selected.delete(id) : selected.add(id);
+  updateBatch();
+  renderGrid();
+}
+
+function updateBatch() {
+  const bar = document.getElementById('batch-bar');
+  document.getElementById('batch-cnt').textContent = `${selected.size} selected`;
+  bar.classList.toggle('vis', selected.size > 0);
+}
+
+function clearSel() { selected.clear(); updateBatch(); renderGrid(); }
+
+function filterBy(cat, statEl, tabEl) {
+  currentFilter = cat;
+  document.querySelectorAll('.stat').forEach(s => s.classList.remove('active'));
+  if (statEl) statEl.closest('.stat').classList.add('active');
+  document.querySelectorAll('.ftab').forEach(t => t.className = 'ftab');
+  const allTabs = document.querySelectorAll('.ftab');
+  const tabMap = {all:0,contact:1,potential:2,dnc:3};
+  const clsMap = {all:'fa',contact:'fg',potential:'fy',dnc:'fr'};
+  if (tabEl) tabEl.className = `ftab ${clsMap[cat]}`;
+  else if (tabMap[cat] !== undefined) allTabs[tabMap[cat]].className = `ftab ${clsMap[cat]}`;
+  renderGrid();
+}
+
+function sortProspects(val) {
+  if (val==='urgency') prospects.sort((a,b)=>b.urgency_score-a.urgency_score);
+  if (val==='icp') prospects.sort((a,b)=>b.icp_score-a.icp_score);
+  if (val==='combined') prospects.sort((a,b)=>((b.icp_score*.45)+(b.urgency_score*.55))-((a.icp_score*.45)+(a.urgency_score*.55)));
+  if (val==='name') prospects.sort((a,b)=>a.name.localeCompare(b.name));
+  renderGrid();
+}
+
+// ─── DETAIL MODAL ──────────────────────────────────────────────────────────────
+function openDetail(id) {
+  const p = prospects.find(x=>x.id===id);
+  if(!p) return;
+  const pc = {contact:'cp-g',potential:'cp-y',dnc:'cp-r'}[p.category];
+  const pl = {contact:'● Contact',potential:'◐ Potentially contact',dnc:'○ Do not contact'}[p.category];
+  document.getElementById('dm-name').textContent = p.name;
+  document.getElementById('dm-sub').textContent = `${p.role} · ${p.location}`;
+  document.getElementById('dm-body').innerHTML = `
+    <div style="margin-bottom:12px"><span class="cpill ${pc}" style="display:inline-flex">${pl}</span></div>
+    <div class="detail-section"><h4>Summary</h4><p>${p.summary}</p></div>
+    ${p.why_now&&p.why_now.length?`<div class="detail-section"><h4>Why now</h4><ul class="detail-list">${p.why_now.map(r=>`<li>${r}</li>`).join('')}</ul></div>`:''}
+    <div class="detail-section"><h4>Match reasons</h4><ul class="detail-list">${(p.match_reasons||[]).map(r=>`<li>${r}</li>`).join('')}</ul></div>
+    ${p.potential_concerns&&p.potential_concerns.length?`<div class="detail-section"><h4>Potential concerns</h4><ul class="detail-list">${p.potential_concerns.map(r=>`<li>${r}</li>`).join('')}</ul></div>`:''}
+    <div class="detail-section"><h4>Recommended outreach angle</h4><p style="color:var(--accent)">${p.outreach_angle}</p></div>
+    <div class="scores">${['icp_score','urgency_score'].map(k=>`<div class="schip">${k==='icp_score'?'ICP':'Urgency'} <b>${p[k]}</b></div>`).join('')}</div>`;
+  const editBtn = document.getElementById('dm-edit-btn');
+  const draftBtn = document.getElementById('dm-draft-btn');
+  editBtn.onclick = () => { closeOverlay('detail-overlay'); openEdit(id); };
+  if (p.category==='dnc') {
+    draftBtn.textContent = 'Not recommended';
+    draftBtn.disabled = true; draftBtn.style.opacity = '.4';
+  } else {
+    draftBtn.textContent = 'Draft email →';
+    draftBtn.disabled = false; draftBtn.style.opacity = '1';
+    draftBtn.onclick = () => { closeOverlay('detail-overlay'); openEmail(id); };
+  }
+  document.getElementById('detail-overlay').classList.add('open');
+}
+
+// ─── EDIT MODAL ────────────────────────────────────────────────────────────────
+function openEdit(id) {
+  editingId = id;
+  const p = prospects.find(x=>x.id===id);
+  if(!p) return;
+  const form = document.getElementById('edit-form');
+
+  const editWhy = (p.why_now||[]).slice();
+  const editConcerns = (p.potential_concerns||[]).slice();
+  const editReasons = (p.match_reasons||[]).slice();
+
+  form.innerHTML = `
+    <div class="form-group"><label>Name</label><input type="text" id="ef-name" value="${esc(p.name)}"></div>
+    <div class="form-group"><label>Role / Company</label><input type="text" id="ef-role" value="${esc(p.role)}"></div>
+    <div class="form-group"><label>Location</label><input type="text" id="ef-location" value="${esc(p.location)}"></div>
+    <div class="form-group"><label>ICP Category</label><input type="text" id="ef-cat" value="${esc(p.icp_category)}"></div>
+    <div class="form-group full"><label>Summary</label><textarea id="ef-summary">${esc(p.summary)}</textarea></div>
+    <div class="form-group full"><label>Outreach angle</label><textarea id="ef-angle">${esc(p.outreach_angle)}</textarea></div>
+    <div class="form-group">
+      <label>ICP Score</label>
+      <div class="score-input">
+        <div class="score-display" id="icp-disp">${p.icp_score}</div>
+        <input type="range" min="0" max="100" value="${p.icp_score}" id="ef-icp"
+          oninput="document.getElementById('icp-disp').textContent=this.value">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Urgency Score</label>
+      <div class="score-input">
+        <div class="score-display" id="urg-disp">${p.urgency_score}</div>
+        <input type="range" min="0" max="100" value="${p.urgency_score}" id="ef-urg"
+          oninput="document.getElementById('urg-disp').textContent=this.value">
+      </div>
+    </div>
+    <div class="form-group full">
+      <label>Category override</label>
+      <div class="mcat-select" id="cat-sel">
+        <button class="mcat-opt${p.category==='contact'?' sel-g':''}" onclick="selectCat('contact')">● Contact</button>
+        <button class="mcat-opt${p.category==='potential'?' sel-y':''}" onclick="selectCat('potential')">◐ Potentially</button>
+        <button class="mcat-opt${p.category==='dnc'?' sel-r':''}" onclick="selectCat('dnc')">○ Do not contact</button>
+      </div>
+    </div>
+    <div class="form-group full">
+      <label>Why now triggers</label>
+      <div class="tag-input-wrap">
+        <div class="tag-list" id="why-tags">${editWhy.map((t,i)=>`<span class="tag-edit">${esc(t)}<button class="tag-rm" onclick="removeTag('why-tags',${i})">×</button></span>`).join('')}</div>
+        <div class="tag-add-row"><input type="text" id="why-new" placeholder="Add trigger..."><button class="tag-add-btn" onclick="addTag('why-tags','why-new')">+ Add</button></div>
+      </div>
+    </div>
+    <div class="form-group full">
+      <label>Match reasons</label>
+      <div class="tag-input-wrap">
+        <div class="tag-list" id="reason-tags">${editReasons.map((t,i)=>`<span class="tag-edit">${esc(t)}<button class="tag-rm" onclick="removeTag('reason-tags',${i})">×</button></span>`).join('')}</div>
+        <div class="tag-add-row"><input type="text" id="reason-new" placeholder="Add reason..."><button class="tag-add-btn" onclick="addTag('reason-tags','reason-new')">+ Add</button></div>
+      </div>
+    </div>
+    <div class="form-group full">
+      <label>Potential concerns</label>
+      <div class="tag-input-wrap">
+        <div class="tag-list" id="concern-tags">${editConcerns.map((t,i)=>`<span class="tag-edit">${esc(t)}<button class="tag-rm" onclick="removeTag('concern-tags',${i})">×</button></span>`).join('')}</div>
+        <div class="tag-add-row"><input type="text" id="concern-new" placeholder="Add concern..."><button class="tag-add-btn" onclick="addTag('concern-tags','concern-new')">+ Add</button></div>
+      </div>
+    </div>`;
+
+  window._editCat = p.category;
+  document.getElementById('edit-overlay').classList.add('open');
+}
+
+function selectCat(cat) {
+  window._editCat = cat;
+  document.querySelectorAll('.mcat-opt').forEach(b => b.className = 'mcat-opt');
+  const btn = document.querySelector(`.mcat-opt:nth-child(${['contact','potential','dnc'].indexOf(cat)+1})`);
+  if(btn) btn.className = `mcat-opt ${{contact:'sel-g',potential:'sel-y',dnc:'sel-r'}[cat]}`;
+}
+
+function addTag(listId, inputId) {
+  const inp = document.getElementById(inputId);
+  const val = inp.value.trim();
+  if (!val) return;
+  const list = document.getElementById(listId);
+  const items = list.querySelectorAll('.tag-edit');
+  const idx = items.length;
+  const span = document.createElement('span');
+  span.className = 'tag-edit';
+  span.innerHTML = `${esc(val)}<button class="tag-rm" onclick="removeTag('${listId}',${idx})">×</button>`;
+  list.appendChild(span);
+  inp.value = '';
+}
+
+function removeTag(listId, idx) {
+  const list = document.getElementById(listId);
+  const items = list.querySelectorAll('.tag-edit');
+  if (items[idx]) items[idx].remove();
+  // re-index remove buttons
+  list.querySelectorAll('.tag-edit').forEach((item, i) => {
+    const btn = item.querySelector('.tag-rm');
+    if(btn) btn.setAttribute('onclick', `removeTag('${listId}',${i})`);
+  });
+}
+
+function getTagValues(listId) {
+  return [...document.querySelectorAll(`#${listId} .tag-edit`)].map(el => el.childNodes[0].textContent.trim()).filter(Boolean);
+}
+
+function saveEdit() {
+  const p = prospects.find(x=>x.id===editingId);
+  if(!p) return;
+  p.name = document.getElementById('ef-name').value.trim() || p.name;
+  p.role = document.getElementById('ef-role').value.trim() || p.role;
+  p.location = document.getElementById('ef-location').value.trim() || p.location;
+  p.icp_category = document.getElementById('ef-cat').value.trim() || p.icp_category;
+  p.summary = document.getElementById('ef-summary').value.trim() || p.summary;
+  p.outreach_angle = document.getElementById('ef-angle').value.trim() || p.outreach_angle;
+  p.icp_score = parseInt(document.getElementById('ef-icp').value);
+  p.urgency_score = parseInt(document.getElementById('ef-urg').value);
+  p.why_now = getTagValues('why-tags');
+  p.match_reasons = getTagValues('reason-tags');
+  p.potential_concerns = getTagValues('concern-tags');
+  p.category = window._editCat || categorize(p);
+  p.catReason = catReason(p, p.category);
+  closeOverlay('edit-overlay');
+  updateCounts();
+  renderGrid();
+  addChatMsg('ai', `Updated <b>${p.name}</b> — now categorized as <b>${{contact:'Contact',potential:'Potentially contact',dnc:'Do not contact'}[p.category]}</b>.`);
+}
+
+// ─── EMAIL MODAL ───────────────────────────────────────────────────────────────
+function launchPipeline(ids) {
+  const selected = ids.map(id => prospects.find(p=>p.id===id)).filter(Boolean);
+  try { localStorage.setItem('cp_selected', JSON.stringify(selected)); } catch(e) {}
+  window.open('pipeline.html','_blank');
+}
+
+async function openEmail(id) {
+  launchPipeline([id]);
+  return;
+  emailProspectId = id;
+  const p = prospects.find(x=>x.id===id);
+  if(!p) return;
+  document.getElementById('em-name').textContent = `Draft — ${p.name}`;
+  document.getElementById('em-sub').textContent = p.role;
+  const sendBtn = document.getElementById('em-send-btn');
+  sendBtn.disabled = true;
+
+  document.getElementById('em-body').innerHTML = `
+    <div class="email-status loading" id="em-status">
+      <div class="spin"></div>
+      <span>Generating personalized draft + running FINRA Rule 2210 compliance check...</span>
+    </div>
+    <div id="em-fields" style="display:none">
+      <div class="email-field"><label>To</label><input type="text" id="em-to" value="${esc(p.name)} &lt;${p.name.toLowerCase().replace(/\s/g,'.')}@prospect.com&gt;"></div>
+      <div class="email-field"><label>Subject</label><input type="text" id="em-subject" value=""></div>
+      <div class="email-field"><label>Body</label><textarea id="em-body-text" style="min-height:200px"></textarea></div>
+      <div class="compliance-box" id="compliance-box">
+        <h4>2210 Compliance Review</h4>
+        <div id="compliance-items"></div>
+      </div>
+    </div>`;
+
+  document.getElementById('email-overlay').classList.add('open');
+
+  try {
+    const result = await generateEmail(p);
+    document.getElementById('em-status').className = 'email-status done';
+    document.getElementById('em-status').innerHTML = '<span>✓</span><span>Draft ready · Compliance check complete</span>';
+    document.getElementById('em-fields').style.display = 'block';
+    document.getElementById('em-subject').value = result.subject;
+    document.getElementById('em-body-text').value = result.body;
+    document.getElementById('compliance-items').innerHTML = result.compliance.map(item => `
+      <div class="compliance-item">
+        <span class="ci-icon">${item.status==='pass'?'✅':item.status==='warn'?'⚠️':'❌'}</span>
+        <div><div class="ci-text">${item.check}</div><div class="ci-ref">${item.ref}</div></div>
+      </div>`).join('');
+    sendBtn.disabled = false;
+  } catch(e) {
+    document.getElementById('em-status').className = 'email-status err';
+    document.getElementById('em-status').innerHTML = `<span>✕</span><span>Error: ${e.message}. Check your API key or network.</span>`;
+  }
+}
+
+async function generateEmail(p) {
+  const prompt = `You are a compliance-aware email drafting assistant for a financial advisor. Generate a personalized outreach email and a compliance review for the following prospect.
+
+PROSPECT DATA:
+Name: ${p.name}
+Role: ${p.role}
+Location: ${p.location}
+ICP Category: ${p.icp_category}
+Summary: ${p.summary}
+Why Now: ${(p.why_now||[]).join('; ')}
+Match Reasons: ${(p.match_reasons||[]).join('; ')}
+Potential Concerns: ${(p.potential_concerns||[]).join('; ')}
+Recommended Outreach Angle: ${p.outreach_angle}
+
+TASK:
+1. Write a personalized, warm, non-promissory outreach email from a financial advisor. The email must:
+   - Reference a specific real trigger (from "Why Now") naturally
+   - NOT make any performance guarantees or promises of returns
+   - NOT be misleading about credentials or services
+   - Include a soft CTA to schedule a brief call
+   - Be 150-200 words, conversational, not salesy
+   - Include a basic disclosure line at the bottom
+
+2. Review the email against FINRA Rule 2210 (Communications with the Public) and return 4 specific compliance checks.
+
+Respond ONLY with valid JSON in this exact format (no markdown, no preamble):
+{
+  "subject": "email subject line",
+  "body": "full email body text",
+  "compliance": [
+    {"status": "pass", "check": "description of what was checked", "ref": "Rule 2210 section reference"},
+    {"status": "pass", "check": "...", "ref": "..."},
+    {"status": "warn", "check": "...", "ref": "..."},
+    {"status": "pass", "check": "...", "ref": "..."}
+  ]
+}
+Status values: "pass" (compliant), "warn" (review recommended), "fail" (non-compliant).`;
+
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-5',
+      max_tokens: 1000,
+      messages: [{role: 'user', content: prompt}]
+    })
+  });
+
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err.error?.message || `API error ${resp.status}`);
+  }
+
+  const data = await resp.json();
+  const text = data.content.map(c => c.text || '').join('').replace(/```json|```/g,'').trim();
+  return JSON.parse(text);
+}
+
+function sendEmail() {
+  const p = prospects.find(x=>x.id===emailProspectId);
+  const subject = document.getElementById('em-subject').value;
+  const body = document.getElementById('em-body-text').value;
+  closeOverlay('email-overlay');
+  addChatMsg('ai', `Email for <b>${p.name}</b> sent to compliance review queue.<br><span style="color:var(--muted);font-size:11px">Subject: "${subject}"</span>`);
+}
+
+// ─── BATCH ─────────────────────────────────────────────────────────────────────
+async function batchDraft() {
+  const ids = [...selected];
+  if (!ids.length) return;
+  launchPipeline(ids);
+  clearSel();
+}
+
+// ─── CHATBOT ───────────────────────────────────────────────────────────────────
+function quickPrompt(text) {
+  document.getElementById('chat-input').value = text;
+  sendChat();
+}
+
+async function sendChat() {
+  const inp = document.getElementById('chat-input');
+  const msg = inp.value.trim();
+  if (!msg) return;
+  inp.value = '';
+  inp.style.height = 'auto';
+
+  addChatMsg('user', msg);
+  chatHistory.push({role:'user', content: msg});
+
+  const sendBtn = document.getElementById('chat-send-btn');
+  sendBtn.disabled = true;
+  const typingId = addTyping();
+
+  try {
+    const systemPrompt = `You are a prospect triage assistant for a financial advisor. You help the advisor filter, re-rank, and recategorize a list of prospects.
+
+CURRENT PROSPECT LIST:
+${JSON.stringify(prospects.map(p=>({id:p.id,name:p.name,role:p.role,icp_score:p.icp_score,urgency_score:p.urgency_score,category:p.category,why_now:p.why_now,potential_concerns:p.potential_concerns})),null,2)}
+
+CATEGORIES: "contact" (green), "potential" (yellow), "dnc" (do not contact / red)
+
+You can:
+1. Answer questions about the prospect list
+2. Suggest or apply re-categorizations
+3. Explain why prospects are ranked how they are
+4. Help the advisor decide who to contact first
+
+When you want to apply changes to the prospect list, end your response with a JSON block like:
+<ACTIONS>
+[{"action":"recategorize","id":1,"category":"contact","reason":"..."},{"action":"sort","by":"urgency"}]
+</ACTIONS>
+
+Keep responses concise and advisor-friendly. No jargon.`;
+
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 800,
+        system: systemPrompt,
+        messages: chatHistory
+      })
+    });
+
+    removeTyping(typingId);
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(()=>({}));
+      throw new Error(err.error?.message || `API ${resp.status}`);
+    }
+
+    const data = await resp.json();
+    const fullText = data.content.map(c=>c.text||'').join('');
+
+    // Parse out any actions
+    const actionMatch = fullText.match(/<ACTIONS>([\s\S]*?)<\/ACTIONS>/);
+    const displayText = fullText.replace(/<ACTIONS>[\s\S]*?<\/ACTIONS>/g,'').trim();
+
+    addChatMsg('ai', displayText.replace(/\n/g,'<br>'));
+    chatHistory.push({role:'assistant', content: fullText});
+
+    if (actionMatch) {
+      try {
+        const actions = JSON.parse(actionMatch[1]);
+        applyActions(actions);
+      } catch(e) { console.warn('Action parse error', e); }
+    }
+  } catch(e) {
+    removeTyping(typingId);
+    addChatMsg('ai', `Sorry, I hit an error: ${e.message}`);
+  }
+
+  sendBtn.disabled = false;
+  inp.focus();
+}
+
+function applyActions(actions) {
+  let changed = 0;
+  actions.forEach(a => {
+    if (a.action === 'recategorize') {
+      const p = prospects.find(x=>x.id===a.id);
+      if (p && ['contact','potential','dnc'].includes(a.category)) {
+        p.category = a.category;
+        p.catReason = a.reason || catReason(p, a.category);
+        changed++;
+      }
+    }
+    if (a.action === 'sort') sortProspects(a.by || 'urgency');
+  });
+  if (changed > 0) { updateCounts(); renderGrid(); }
+}
+
+let typingCounter = 0;
+function addTyping() {
+  const id = `typing-${++typingCounter}`;
+  const msgs = document.getElementById('chat-msgs');
+  msgs.insertAdjacentHTML('beforeend', `<div class="msg msg-ai" id="${id}">
+    <div class="msg-label">Assistant</div>
+    <div class="typing"><span></span><span></span><span></span></div>
+  </div>`);
+  msgs.scrollTop = msgs.scrollHeight;
+  return id;
+}
+
+function removeTyping(id) {
+  document.getElementById(id)?.remove();
+}
+
+function addChatMsg(who, html) {
+  const msgs = document.getElementById('chat-msgs');
+  const lbl = who === 'ai' ? 'Assistant' : 'You';
+  msgs.insertAdjacentHTML('beforeend', `<div class="msg msg-${who}">
+    <div class="msg-label">${lbl}</div>
+    <div class="msg-bubble">${html}</div>
+  </div>`);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+// ─── OVERLAY ───────────────────────────────────────────────────────────────────
+function closeOverlay(id, e) {
+  if (e && e.target !== document.getElementById(id)) return;
+  document.getElementById(id).classList.remove('open');
+}
+
+// ─── UPLOAD ────────────────────────────────────────────────────────────────────
+function handleUpload(e) {
+  const file = e.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      const arr = Array.isArray(data) ? data : (data.prospects || data.records || [data]);
+      document.getElementById('crm-name').textContent = file.name;
+      selected.clear();
+      init(arr);
+      addChatMsg('ai', `Loaded <b>${file.name}</b> — ${arr.length} prospects. I've categorized them automatically. Want me to re-rank or adjust any categories?`);
+    } catch {
+      alert('Could not parse file. Expected JSON array matching scored.json schema.');
+    }
+  };
+  reader.readAsText(file);
+}
+
+// ─── UTIL ──────────────────────────────────────────────────────────────────────
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ─── BOOT ──────────────────────────────────────────────────────────────────────
+init(SAMPLE);
+</script>
+</body>
+</html>
