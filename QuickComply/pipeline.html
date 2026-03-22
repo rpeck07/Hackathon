@@ -812,11 +812,11 @@ function renderActionBar() {
   const pending = JSON.parse(localStorage.getItem('cp_pending_reviews')||'[]');
   const pendingCount = pending.filter(x=>x.status==='pending').length;
   bar.innerHTML = `
-    <button class="abtn abtn-secondary" onclick="printView()">🖨 Print</button>
-    <button class="abtn abtn-secondary" onclick="window.open('compliance-dashboard.html','_blank')">
-      ⚖ Compliance dashboard${pendingCount>0?` <span style="background:var(--yellow);color:#0d0f12;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px">${pendingCount}</span>`:''}
+    <button class="abtn abtn-secondary" onclick="printView()">Print</button>
+    <button class="abtn abtn-secondary" onclick="window.open('advisor-inbox.html','_blank')">
+      Advisor inbox${pendingCount>0?` <span style="background:var(--amber);color:#0d0f12;border-radius:10px;padding:1px 7px;font-size:10px;margin-left:4px;font-weight:600">${pendingCount}</span>`:''}
     </button>
-    <button class="abtn abtn-primary" onclick="sendToReview(${p.id})" ${hasEmail?'':'disabled'}>Send to compliance officer →</button>`;
+    <button class="abtn abtn-primary" onclick="sendToReview(${p.id})" ${hasEmail?'':'disabled'}>Send to compliance →</button>`;
 }
 
 async function regenEmail(pid) {
