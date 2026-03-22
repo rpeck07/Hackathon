@@ -394,6 +394,58 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 <body>
 <div class="app">
 
+  <!-- MAIN PANEL -->
+  <div class="main-panel">
+    <div class="header">
+      <div class="logo">Compliant Prospector <em>— triage</em></div>
+      <div class="header-actions">
+        <label class="upload-btn" for="crm-upload">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Upload CRM
+        </label>
+        <input type="file" id="crm-upload" accept=".json,.csv" onchange="handleUpload(event)">
+        <div class="crm-badge" id="crm-badge"><div class="dot"></div><span id="crm-name">scored.json</span></div>
+      </div>
+    </div>
+
+    <div class="stats-row" id="stats-row">
+      <div class="stat s-all active" onclick="filterBy('all',this)"><div class="stat-num" id="cnt-all">0</div><div class="stat-label">Total</div></div>
+      <div class="stat s-green" onclick="filterBy('contact',this)"><div class="stat-num" id="cnt-c">0</div><div class="stat-label">Contact</div></div>
+      <div class="stat s-yellow" onclick="filterBy('potential',this)"><div class="stat-num" id="cnt-p">0</div><div class="stat-label">Potentially contact</div></div>
+      <div class="stat s-red" onclick="filterBy('dnc',this)"><div class="stat-num" id="cnt-d">0</div><div class="stat-label">Do not contact</div></div>
+    </div>
+
+    <div class="filter-bar">
+      <div class="filter-tabs" id="ftabs">
+        <button class="ftab fa" onclick="filterBy('all',null,this)">All</button>
+        <button class="ftab" onclick="filterBy('contact',null,this)">Contact</button>
+        <button class="ftab" onclick="filterBy('potential',null,this)">Potentially</button>
+        <button class="ftab" onclick="filterBy('dnc',null,this)">Do not contact</button>
+        <button class="ftab" onclick="resetFilter()" id="reset-btn" style="display:none;color:var(--amber);border-color:rgba(245,158,11,0.3)">↺ New search</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <div style="display:flex;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;transition:border-color .15s;" id="search-wrap">
+          <div style="display:flex;border-right:1px solid var(--border);">
+            <button class="search-type-btn active" id="stype-name" onclick="setSearchType('name',this)" style="padding:5px 10px;font-size:10px;font-family:'Geist Mono',monospace;letter-spacing:.04em;text-transform:uppercase;background:none;border:none;cursor:pointer;color:var(--accent);transition:all .15s;">Name</button>
+            <button class="search-type-btn" id="stype-company" onclick="setSearchType('company',this)" style="padding:5px 10px;font-size:10px;font-family:'Geist Mono',monospace;letter-spacing:.04em;text-transform:uppercase;background:none;border:none;cursor:pointer;color:var(--text3);transition:all .15s;">Company</button>
+          </div>
+          <input type="text" id="prospect-search" placeholder="Search..." style="background:none;border:none;padding:5px 10px;color:var(--text);font-size:12px;outline:none;width:160px;" oninput="handleSearch(this.value)" onkeydown="if(event.key==='Escape'){this.value='';handleSearch('');}">
+          <button onclick="document.getElementById('prospect-search').value='';handleSearch('');" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:0 8px;font-size:14px;line-height:1;display:none;" id="search-clear">×</button>
+        </div>
+        <select class="sort-sel" onchange="sortProspects(this.value)">
+          <option value="urgency">Sort: Urgency</option>
+          <option value="icp">Sort: ICP Score</option>
+          <option value="combined">Sort: Combined</option>
+          <option value="name">Sort: Name A–Z</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="grid-wrap">
+      <div class="grid" id="grid"></div>
+    </div>
+  </div>
+
   <!-- SIDEBAR: AI CHATBOT -->
   <aside class="sidebar">
     <div class="sidebar-header">
@@ -424,47 +476,6 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
     </div>
   </aside>
 
-  <!-- MAIN PANEL -->
-  <div class="main-panel">
-    <div class="header">
-      <div class="logo">Compliant Prospector <em>— triage</em></div>
-      <div class="header-actions">
-        <label class="upload-btn" for="crm-upload">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          Upload CRM
-        </label>
-        <input type="file" id="crm-upload" accept=".json,.csv" onchange="handleUpload(event)">
-        <div class="crm-badge" id="crm-badge"><div class="dot"></div><span id="crm-name">scored.json</span></div>
-      </div>
-    </div>
-
-    <div class="stats-row" id="stats-row">
-      <div class="stat s-all active" onclick="filterBy('all',this)"><div class="stat-num" id="cnt-all">0</div><div class="stat-label">Total</div></div>
-      <div class="stat s-green" onclick="filterBy('contact',this)"><div class="stat-num" id="cnt-c">0</div><div class="stat-label">Contact</div></div>
-      <div class="stat s-yellow" onclick="filterBy('potential',this)"><div class="stat-num" id="cnt-p">0</div><div class="stat-label">Potentially contact</div></div>
-      <div class="stat s-red" onclick="filterBy('dnc',this)"><div class="stat-num" id="cnt-d">0</div><div class="stat-label">Do not contact</div></div>
-    </div>
-
-    <div class="filter-bar">
-      <div class="filter-tabs" id="ftabs">
-        <button class="ftab fa" onclick="filterBy('all',null,this)">All</button>
-        <button class="ftab" onclick="filterBy('contact',null,this)">Contact</button>
-        <button class="ftab" onclick="filterBy('potential',null,this)">Potentially</button>
-        <button class="ftab" onclick="filterBy('dnc',null,this)">Do not contact</button>
-        <button class="ftab" onclick="resetFilter()" id="reset-btn" style="display:none;color:#f59e0b;border-color:rgba(245,158,11,0.3)">↺ New search</button>
-      </div>
-      <select class="sort-sel" onchange="sortProspects(this.value)">
-        <option value="urgency">Sort: Urgency</option>
-        <option value="icp">Sort: ICP Score</option>
-        <option value="combined">Sort: Combined</option>
-        <option value="name">Sort: Name A–Z</option>
-      </select>
-    </div>
-
-    <div class="grid-wrap">
-      <div class="grid" id="grid"></div>
-    </div>
-  </div>
 </div>
 
 <!-- BATCH BAR -->
@@ -620,17 +631,39 @@ function catReason(p, cat) {
 
 
 
-// Generate avatar as inline SVG data URI — zero network, instant
-function getAvatarUrl(p) {
-  if (p._img) return p._img;
+// Avatar: inline SVG fallback + Piloterr async fetch
+const _avatarCache = {};
+
+function svgAvatar(name) {
   const colors = ['#1e3a5f','#2d4a3e','#3d2b4a','#4a2b2b','#2b3d4a','#3a3018','#1a3a2d','#2e1f3e'];
   let hash = 0;
-  for (let i = 0; i < (p.name||'').length; i++) hash = (p.name.charCodeAt(i) + ((hash<<5)-hash));
+  for (let i = 0; i < (name||'').length; i++) hash = (name.charCodeAt(i) + ((hash<<5)-hash));
   const bg = colors[Math.abs(hash) % colors.length];
-  const initials = (p.name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="32" r="32" fill="${bg}"/><text x="32" y="32" font-family="-apple-system,sans-serif" font-size="22" font-weight="600" fill="#d4b896" text-anchor="middle" dominant-baseline="central">${initials}</text></svg>`;
-  p._img = 'data:image/svg+xml;base64,' + btoa(svg);
-  return p._img;
+  const ini = (name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><circle cx="32" cy="32" r="32" fill="${bg}"/><text x="32" y="32" font-family="-apple-system,sans-serif" font-size="22" font-weight="600" fill="#d4b896" text-anchor="middle" dominant-baseline="central">${ini}</text></svg>`;
+  return 'data:image/svg+xml;base64,' + btoa(svg);
+}
+
+// Returns SVG instantly, fires real photo fetch in background
+function getAvatarUrl(p) {
+  if (p._img && !p._img.startsWith('data:')) return p._img; // real photo already loaded
+  if (!p._imgSvg) p._imgSvg = svgAvatar(p.name);
+  // Kick off real photo fetch if we have a linkedin url and haven't tried yet
+  if (p.linkedin && _avatarCache[p.id] === undefined) {
+    _avatarCache[p.id] = null; // mark as in-progress
+    fetch('/api/linkedin-photo?url=' + encodeURIComponent(p.linkedin))
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d && d.image) {
+          p._img = d.image;
+          _avatarCache[p.id] = d.image;
+          // Update any visible avatar elements for this person
+          document.querySelectorAll(`[data-id="${p.id}"] .card-avatar-wrap img, .detail-avatar-wrap img, .bio-avatar img`).forEach(el => { el.src = d.image; });
+        }
+      })
+      .catch(() => {});
+  }
+  return p._imgSvg;
 }
 async function resolveAvatar(p) { return getAvatarUrl(p); }
 
@@ -677,8 +710,24 @@ function updateCounts() {
 
 function renderGrid() {
   const grid = document.getElementById('grid');
-  const filtered = currentFilter === 'all' ? prospects : prospects.filter(p => p.category === currentFilter);
+  let filtered = currentFilter === 'all' ? prospects : prospects.filter(p => p.category === currentFilter);
+  // Apply search
+  if (searchQuery) {
+    filtered = filtered.filter(p => {
+      if (searchType === 'name') return (p.name||'').toLowerCase().includes(searchQuery);
+      if (searchType === 'company') return (p.role||'').toLowerCase().includes(searchQuery);
+      return true;
+    });
+  }
   if (!filtered.length) {
+    if (searchQuery) {
+      grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--text3)">
+        <div style="font-size:28px;margin-bottom:10px;opacity:.3">◎</div>
+        <div style="font-size:15px;color:var(--text);margin-bottom:6px;font-family:'Playfair Display',serif">No matches for "${searchQuery}"</div>
+        <div>Try a different ${searchType} or <span style="color:var(--accent);cursor:pointer" onclick="document.getElementById('prospect-search').value='';handleSearch('')">clear search</span></div>
+      </div>`;
+      return;
+    }
     renderEmptyState();
     return;
   }
@@ -748,6 +797,25 @@ function filterBy(cat, statEl, tabEl) {
   const clsMap = {all:'fa',contact:'fg',potential:'fy',dnc:'fr'};
   if (tabEl) tabEl.className = `ftab ${clsMap[cat]}`;
   else if (tabMap[cat] !== undefined) allTabs[tabMap[cat]].className = `ftab ${clsMap[cat]}`;
+  renderGrid();
+}
+
+// ── SEARCH ───────────────────────────────────────────────────────────────────
+let searchType = 'name';
+let searchQuery = '';
+
+function setSearchType(type, btn) {
+  searchType = type;
+  document.querySelectorAll('.search-type-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  // Re-run current search with new type
+  if (searchQuery) handleSearch(searchQuery);
+}
+
+function handleSearch(q) {
+  searchQuery = q.trim().toLowerCase();
+  const clearBtn = document.getElementById('search-clear');
+  if (clearBtn) clearBtn.style.display = searchQuery ? 'block' : 'none';
   renderGrid();
 }
 
