@@ -724,8 +724,19 @@ function getAvatarUrl(p) {
         if (d && d.image) {
           p._img = d.image;
           _avatarCache[p.id] = d.image;
-          // Update any visible avatar elements for this person
-          document.querySelectorAll(`[data-id="${p.id}"] .card-avatar-wrap img, .detail-avatar-wrap img, .bio-avatar img`).forEach(el => { el.src = d.image; });
+          // Inject into all visible avatar wraps for this person
+          document.querySelectorAll(`[data-id="${p.id}"] .card-avatar-wrap, .detail-avatar-wrap, .bio-avatar`).forEach(wrap => {
+            let img = wrap.querySelector('img');
+            if (img) { img.src = d.image; }
+            else {
+              img = document.createElement('img');
+              img.src = d.image;
+              img.style.cssText = 'width:100%;height:100%;object-fit:cover;position:absolute;inset:0;border-radius:50%';
+              img.onload = () => { const ini = wrap.querySelector('.av-initials'); if (ini) ini.style.opacity = '0'; };
+              img.onerror = () => img.remove();
+              wrap.appendChild(img);
+            }
+          });
         }
       })
       .catch(() => {});
@@ -741,8 +752,13 @@ function setAvatarOnEl(el, url) {
   const img = document.createElement('img');
   img.src = url;
   img.style.cssText = 'width:100%;height:100%;object-fit:cover;position:absolute;inset:0;border-radius:50%';
+  img.onload = function() {
+    // Hide initials text once real photo loads
+    const initEl = el.querySelector('.av-initials');
+    if (initEl) initEl.style.opacity = '0';
+  };
   img.onerror = function(){ this.remove(); };
-  el.prepend(img);
+  el.appendChild(img);
 }
 
 function loadAvatars() {
@@ -811,9 +827,9 @@ function renderGrid() {
       <div class="card-body" style="cursor:pointer" onclick="openDetail(${p.id})">
         <div class="card-top">
           <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
-            <div class="card-avatar-wrap" style="width:36px;height:36px;border-radius:50%;flex-shrink:0;overflow:hidden;background:var(--surface2);border:1px solid var(--border);position:relative;display:flex;align-items:center;justify-content:center;">
-              ${p._img ? `<img src="${p._img}" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0" onerror="this.remove()">` : ''}
-              <span style="font-size:11px;font-weight:600;color:var(--text3);position:relative;z-index:0">${p.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}</span>
+            <div class="card-avatar-wrap" style="width:42px;height:42px;border-radius:50%;flex-shrink:0;overflow:hidden;background:var(--surface2);border:1px solid var(--border);position:relative;display:flex;align-items:center;justify-content:center;">
+              <span class="av-initials" style="font-size:12px;font-weight:600;color:var(--text3);position:relative;transition:opacity .2s">${p.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}</span>
+              ${p._img ? `<img src="${p._img}" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;border-radius:50%" onload="this.previousElementSibling.style.opacity='0'" onerror="this.remove()">` : ''}
             </div>
             <div style="min-width:0"><div class="card-name">${p.name}</div><div class="card-role" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.role}</div></div>
           </div>
@@ -917,9 +933,9 @@ function openDetail(id) {
   document.getElementById('dm-sub').textContent = `${p.role} · ${p.location}`;
   document.getElementById('dm-body').innerHTML = `
     <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
-      <div class="detail-avatar-wrap" style="width:52px;height:52px;border-radius:50%;overflow:hidden;background:var(--surface2);border:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;color:var(--text3);position:relative">
-        ${p._img ? `<img src="${p._img}" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;border-radius:50%" onerror="this.remove()">` : ''}
-        <span style="position:relative">${p.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}</span>
+      <div class="detail-avatar-wrap" style="width:72px;height:72px;border-radius:50%;overflow:hidden;background:var(--surface2);border:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:600;color:var(--text3);position:relative">
+        <span class="av-initials" style="position:relative;transition:opacity .2s">${p.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}</span>
+        ${p._img ? `<img src="${p._img}" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;border-radius:50%" onload="this.previousElementSibling.style.opacity='0'" onerror="this.remove()">` : ''}
       </div>
       <span class="cpill ${pc}" style="display:inline-flex">${pl}</span>
     </div>
