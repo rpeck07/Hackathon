@@ -194,6 +194,9 @@ button,input,select,textarea{font-family:'Instrument Sans',sans-serif;}
 @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 .hidden{display:none;}
 .divider{height:1px;background:var(--border);margin:16px 0;}
+.tone-btn{padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:none;color:var(--muted);font-size:11px;cursor:pointer;transition:all .15s;font-family:'Instrument Sans',sans-serif;}
+.tone-btn:hover{border-color:var(--border2);color:var(--text);}
+.tone-active{background:rgba(200,185,122,0.12);border-color:rgba(200,185,122,0.4)!important;color:var(--accent)!important;}
 </style>
 </head>
 <body>
@@ -729,9 +732,10 @@ function renderSignals(r) {
 function renderEmail(p, r) {
   const email = r.email;
   if (!email) return `<div style="color:var(--muted);padding:20px">Email not generated.</div>`;
+  const tones = ['Professional','Warm & conversational','Concise & direct','Empathetic','Formal'];
   return `<div class="email-composer">
     <div class="email-field"><label>To</label>
-      <input type="text" id="em-to" value="${p.name} &lt;${p.name.toLowerCase().replace(/\s+/g,'.')}@contact.com&gt;">
+      <input type="text" id="em-to-${p.id}" value="${p.name} &lt;${p.name.toLowerCase().replace(/\s+/g,'.')}@contact.com&gt;">
     </div>
     <div class="email-field"><label>Subject</label>
       <input type="text" id="em-subject-${p.id}" value="${esc(email.subject)}">
@@ -739,9 +743,14 @@ function renderEmail(p, r) {
     <div class="email-field"><label>Body</label>
       <textarea id="em-body-${p.id}">${esc(email.body)}</textarea>
     </div>
-    <button class="regen-btn" onclick="regenEmail(${p.id})">
-      ↻ Regenerate with different angle
-    </button>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
+      <span style="font-size:11px;font-family:'DM Mono',monospace;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Tone</span>
+      ${tones.map(t=>`<button class="tone-btn${t==='Professional'?' tone-active':''}" onclick="setTone(${p.id},'${t}',this)">${t}</button>`).join('')}
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="regen-btn" onclick="regenEmail(${p.id})">↻ Regenerate</button>
+      <button class="regen-btn" style="color:var(--green);border-color:rgba(34,197,94,.3)" onclick="sendToReview(${p.id})">→ Send to compliance officer</button>
+    </div>
   </div>`;
 }
 
@@ -770,10 +779,13 @@ function renderCompliance(r) {
       </div>`).join('')}
     </div>
     <div style="margin-top:14px;padding:12px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-size:11px;color:var(--muted);line-height:1.6">
-      <b style="color:var(--text)">Audit trail:</b> This compliance review was generated against FINRA Rule 2210 (Communications with the Public). All flagged items require review by your firm's compliance officer before sending. This is not a substitute for formal legal review.
+      <b style="color:var(--text)">Audit trail:</b> This compliance review was generated against FINRA Rule 2210 (Communications with the Public) and applicable state regulations for ${getStateRegs(currentProspectData()?.location||'')}. All flagged items require review by your firm's compliance officer. This is not a substitute for formal legal review.
     </div>
+    <div id="state-regs-box" style="margin-top:10px"></div>
   </div>`;
+  setTimeout(()=>loadStateRegs(currentProspectData()), 100);
 }
+
 
 function renderMeetingPrep(r) {
   const mp = r.meeting_prep;
@@ -807,10 +819,14 @@ function renderActionBar() {
   const r = results[p.id];
   const bar = document.getElementById('action-bar');
   const hasEmail = r?.email;
+  const pending = JSON.parse(localStorage.getItem('cp_pending_reviews')||'[]');
+  const pendingCount = pending.filter(x=>x.status==='pending').length;
   bar.innerHTML = `
-    <button class="abtn abtn-secondary" onclick="printView()">🖨 Print / Export PDF</button>
-    <button class="abtn abtn-secondary" onclick="switchTab('compliance', document.querySelectorAll('.tab')[3])">⚖ View compliance</button>
-    <button class="abtn abtn-primary" onclick="sendToReview()" ${hasEmail?'':'disabled'}>Send to compliance review →</button>`;
+    <button class="abtn abtn-secondary" onclick="printView()">🖨 Print</button>
+    <button class="abtn abtn-secondary" onclick="window.open('compliance-dashboard.html','_blank')">
+      ⚖ Compliance dashboard${pendingCount>0?` <span style="background:var(--yellow);color:#0d0f12;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px">${pendingCount}</span>`:''}
+    </button>
+    <button class="abtn abtn-primary" onclick="sendToReview(${p.id})" ${hasEmail?'':'disabled'}>Send to compliance officer →</button>`;
 }
 
 async function regenEmail(pid) {
@@ -834,13 +850,133 @@ Respond with JSON only (no markdown): {"subject":"...","body":"..."}`;
   } catch(e) { if(body) body.value = 'Error regenerating — ' + e.message; }
 }
 
-function sendToReview() {
-  const p = selectedProspects[currentProspectIdx];
-  alert(`✓ Email for ${p.name} queued for compliance officer review.\n\nIn production this would push to your firm's approval workflow.`);
+function sendToReview(pid) {
+  const p = pid ? selectedProspects.find(x=>x.id===pid) : selectedProspects[currentProspectIdx];
+  const r = results[p.id];
+  if (!r?.email) return alert('Generate email first.');
+
+  const subject = document.getElementById(`em-subject-${p.id}`)?.value || r.email.subject;
+  const body = document.getElementById(`em-body-${p.id}`)?.value || r.email.body;
+  const complianceData = r.compliance || {};
+  const stateInfo = getStateRegs(p.location || '');
+
+  // Build compliance review email to officer
+  const reviewBody = `COMPLIANCE REVIEW REQUEST
+═══════════════════════════════════════
+Prospect: ${p.name}
+Role: ${p.role}
+Location: ${p.location}
+State Regulations: ${stateInfo}
+
+COMPLIANCE SCORE: ${complianceData.overall_score || 'N/A'}/100
+VERDICT: ${(complianceData.verdict||'pending').toUpperCase()}
+
+FINRA 2210 CHECKS:
+${(complianceData.items||[]).map(i=>`${i.status==='pass'?'✓':i.status==='warn'?'⚠':'✗'} ${i.rule} — ${i.ref}`).join('\n')}
+
+═══════════════════════════════════════
+PROPOSED EMAIL TO ${p.name.toUpperCase()}:
+
+Subject: ${subject}
+
+${body}
+═══════════════════════════════════════
+
+INSTRUCTIONS: Review the above email for compliance.
+→ APPROVE: Reply with "APPROVED" 
+→ REJECT: Reply with "REJECTED: [your reason]"
+
+Review dashboard: ${window.location.origin}/compliance-dashboard.html?id=${p.id}&name=${encodeURIComponent(p.name)}
+
+Sent by: ryancp207@gmail.com via QuickComply`;
+
+  // Open Gmail compose
+  const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=jadiengunnip@gmail.com&su=${encodeURIComponent(`[COMPLIANCE REVIEW] ${subject}`)}&body=${encodeURIComponent(reviewBody)}&from=ryancp207@gmail.com`;
+  window.open(gmailUrl, '_blank');
+
+  // Save to pending reviews in localStorage for dashboard
+  const pending = JSON.parse(localStorage.getItem('cp_pending_reviews') || '[]');
+  const existing = pending.findIndex(x => x.prospectId === p.id);
+  const review = {
+    prospectId: p.id,
+    prospectName: p.name,
+    prospectRole: p.role,
+    subject,
+    body,
+    complianceScore: complianceData.overall_score,
+    verdict: complianceData.verdict,
+    stateRegs: stateInfo,
+    status: 'pending',
+    sentAt: new Date().toISOString(),
+    advisorEmail: 'ryancp207@gmail.com'
+  };
+  if (existing >= 0) pending[existing] = review;
+  else pending.push(review);
+  localStorage.setItem('cp_pending_reviews', JSON.stringify(pending));
+
+  alert(`✓ Compliance review opened in Gmail to jadiengunnip@gmail.com\n\nOnce sent, track status in the Compliance Dashboard.`);
 }
 
 function printView() {
   window.print();
+}
+
+// ── TONE + STATE REGS + HELPERS ────────────────────────────────────────────────
+function currentProspectData() {
+  return selectedProspects[currentProspectIdx];
+}
+
+function getStateRegs(location) {
+  const state = (location||'').toLowerCase();
+  const regs = {
+    'new york': 'NY Reg 187 (Suitability), NYDFS guidelines',
+    'california': 'CA Corp Code §25230, DFPI regulations',
+    'florida': 'FL Statute §517, OFR guidelines',
+    'texas': 'TX Securities Act, TSSB rules',
+    'illinois': 'IL Securities Law, IDFPR rules',
+    'massachusetts': 'MA Uniform Securities Act, NASAA model rules',
+    'connecticut': 'CT Uniform Securities Act, DEEP regulations',
+    'new jersey': 'NJ Uniform Securities Law, NJBOS rules',
+    'pennsylvania': 'PA Securities Act, PSC guidelines',
+    'washington': 'WA Securities Act, DFI regulations',
+  };
+  for (const [key, val] of Object.entries(regs)) {
+    if (state.includes(key)) return val;
+  }
+  return 'FINRA Rule 2210, applicable state securities law';
+}
+
+async function loadStateRegs(p) {
+  if (!p) return;
+  const box = document.getElementById('state-regs-box');
+  if (!box) return;
+  const stateInfo = getStateRegs(p.location||'');
+  box.innerHTML = `<div style="padding:12px 16px;background:rgba(96,165,250,0.07);border:1px solid rgba(96,165,250,0.2);border-radius:8px;font-size:11px;line-height:1.6">
+    <b style="color:#60a5fa">State-specific regulations (${p.location}):</b><br>
+    <span style="color:var(--muted)">${stateInfo}</span>
+  </div>`;
+}
+
+async function setTone(pid, tone, btn) {
+  document.querySelectorAll('.tone-btn').forEach(b=>b.classList.remove('tone-active'));
+  btn.classList.add('tone-active');
+  const p = selectedProspects.find(x=>x.id===pid);
+  if (!p) return;
+  const bodyEl = document.getElementById(`em-body-${pid}`);
+  const subjEl = document.getElementById(`em-subject-${pid}`);
+  if(bodyEl) bodyEl.value = 'Rewriting with ' + tone + ' tone...';
+  const prompt = `Rewrite this outreach email with a "${tone}" tone for ${p.name} (${p.role}).
+Context: ${p.summary}
+Why Now: ${(p.why_now||[]).join('; ')}
+Keep same key facts, 140-180 words, non-promissory, end with disclosure line.
+Return JSON only: {"subject":"...","body":"..."}`;
+  try {
+    const raw = await callClaude('Output only raw valid JSON, no markdown.', prompt, 600);
+    const parsed = extractJSON(raw);
+    if(subjEl) subjEl.value = parsed.subject || '';
+    if(bodyEl) bodyEl.value = parsed.body || '';
+    if(results[pid]) results[pid].email = parsed;
+  } catch(e) { if(bodyEl) bodyEl.value = 'Error — ' + e.message; }
 }
 
 // ── UTILS ──────────────────────────────────────────────────────────────────────
