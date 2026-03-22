@@ -539,9 +539,9 @@ function extractJSON(raw) {
 
 // ── API CALL ──────────────────────────────────────────────────────────────────
 async function callClaude(system, user, maxTokens) {
-  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+  const resp = await fetch('/api/proxy', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-api-key': 'YOUR_API_KEY_HERE', 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-iab': 'true' },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: 'claude-sonnet-4-5',
       max_tokens: maxTokens,
